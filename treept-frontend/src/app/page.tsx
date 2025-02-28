@@ -9,8 +9,10 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
   // Function to handle smooth scrolling with proper typing
   useEffect(() => {
     // Add a smooth scroll effect when clicking on navigation items
@@ -39,6 +41,10 @@ export default function Home() {
       document.removeEventListener("click", handleSmoothScroll);
     };
   }, []);
+
+  const handleGetStartedClick = () => {
+    router.push("/issues");
+  };
 
   return (
     <div>
@@ -105,9 +111,10 @@ export default function Home() {
             Join millions of people already using TreePT to contribute to innovating technology.
           </p>
           <button 
+            onClick={handleGetStartedClick}
             className="px-8 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg 
                       hover:bg-white hover:text-green-600 hover:ring-2 hover:ring-green-600 
-                      transition-all duration-300 transform hover:scale-105 shadow-lg"
+                      transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer"
           >
             Get Started Today
           </button>
