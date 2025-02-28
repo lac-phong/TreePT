@@ -28,9 +28,16 @@ export const Navbar = () => {
             >
               About
             </Link>
-            <button className="text-white font-medium hover:text-green-600">
-              Get started
-            </button>
+            <Link
+              href="/"
+              className={`text-sm font-medium ${
+                pathname.includes('/dashboard')
+                  ? 'text-white'
+                  : 'text-white hover:text-green-600'
+              }`}
+            >
+              Get Started
+            </Link>
           </div>
         </div>
       </div>

@@ -43,10 +43,10 @@ export default function Home() {
   return (
     <div>
       {/* Welcome section with distinct background */}
-      <section id="welcome" className="bg-green-100 py-16 mb-8">
+      <section id="welcome" className="bg-green-100 py-50 mb-8">
         <div className="container mx-auto text-center">
           <h1 className="text-4xl font-bold mb-4">Welcome to TreePT</h1>
-          <p className="text-lg mb-6">Your sustainable solutions provider</p>
+          <p className="text-lg mb-6">Contributing to a more connected Github</p>
           <a href="#solutions" className="scroll-link bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
             Explore Our Solutions
           </a>
@@ -60,11 +60,11 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="h-full">
             <CardHeader>
-              <CardTitle>Eco-Friendly Assessment</CardTitle>
-              <CardDescription>Evaluate your environmental impact</CardDescription>
+              <CardTitle>Repository understanding</CardTitle>
+              <CardDescription>Evaluate your project</CardDescription>
             </CardHeader>
             <CardContent>
-              <p>Our comprehensive assessment helps identify areas where your business can reduce its carbon footprint and improve sustainability practices.</p>
+              <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.</p>
             </CardContent>
             <CardFooter>
               <a href="#" className="text-green-600 hover:underline">Learn more</a>
@@ -73,11 +73,11 @@ export default function Home() {
           
           <Card className="h-full">
             <CardHeader>
-              <CardTitle>Green Certification</CardTitle>
+              <CardTitle>Optimized issue resolution</CardTitle>
               <CardDescription>Get recognized for your efforts</CardDescription>
             </CardHeader>
             <CardContent>
-              <p>Our certification process validates your organization&apos;s commitment to environmental stewardship and sustainable business practices.</p>
+              <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.</p>
             </CardContent>
             <CardFooter>
               <a href="#" className="text-green-600 hover:underline">Learn more</a>
@@ -86,11 +86,11 @@ export default function Home() {
           
           <Card className="h-full">
             <CardHeader>
-              <CardTitle>Sustainability Training</CardTitle>
+              <CardTitle>More Github contributions</CardTitle>
               <CardDescription>Empower your team</CardDescription>
             </CardHeader>
             <CardContent>
-              <p>Provide your employees with the knowledge and tools they need to implement eco-friendly practices throughout your organization.</p>
+              <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.</p>
             </CardContent>
             <CardFooter>
               <a href="#" className="text-green-600 hover:underline">Learn more</a>
@@ -102,7 +102,7 @@ export default function Home() {
         <div className="container mx-auto text-center">
           <h2 className="text-3xl font-bold mb-6">Ready to Make a Difference?</h2>
           <p className="text-lg mb-8 max-w-2xl mx-auto">
-            Join thousands of organizations already using TreePT to improve their environmental impact and build a more sustainable future.
+            Join millions of people already using TreePT to contribute to innovating technology.
           </p>
           <button 
             className="px-8 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg 
