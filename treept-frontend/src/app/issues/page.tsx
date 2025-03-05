@@ -3,12 +3,10 @@
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { useState, useEffect } from "react";
+} from "../../components/ui/card";
+import { useState } from "react";
 import { Input } from "components/ui/input";
 import { Button } from "components/ui/button";
 

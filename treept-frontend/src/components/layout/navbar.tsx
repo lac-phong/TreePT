@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export const Navbar = () => {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
 
   return (
     <header className="bg-black border-b border-gray-200 shadow-sm">
@@ -29,9 +29,9 @@ export const Navbar = () => {
               About
             </Link>
             <Link
-              href="/"
+              href="/issues"
               className={`text-sm font-medium ${
-                pathname.includes('/dashboard')
+                pathname.includes('/issues')
                   ? 'text-white'
                   : 'text-white hover:text-green-600'
               }`}

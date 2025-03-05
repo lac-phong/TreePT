@@ -1,7 +1,5 @@
 import * as React from "react"
 
-import { cn } from "@/lib/utils"
-
 export function Button({ children, onClick, type = "button" }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
