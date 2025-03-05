@@ -5,8 +5,8 @@ import {
   CardDescription, 
   CardHeader, 
   CardTitle 
-} from '../../../components/ui/card';
-import { Badge } from '../../../components/ui/badge';
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { FileText, Package, GitBranch, Library } from 'lucide-react';
 
 // Todo: Link these to the script's outputs
