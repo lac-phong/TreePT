@@ -1,7 +1,5 @@
 import * as React from "react"
 
-import { cn } from "@/lib/utils"
-
 export function Input({ type = "text", placeholder, value, onChange }: React.InputHTMLAttributes<HTMLInputElement>) {
     return (
       <input
