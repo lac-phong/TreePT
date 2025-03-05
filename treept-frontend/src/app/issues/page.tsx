@@ -9,8 +9,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useState, useEffect } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Input } from "components/ui/input";
+import { Button } from "components/ui/button";
 
 export default function Issues() {
   const [repoUrl, setRepoUrl] = useState("");
