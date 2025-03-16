@@ -6,7 +6,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useState } from "react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { Key, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +26,12 @@ export default function Issues() {
   const [issues, setIssues] = useState<{ id: number; title: string; html_url: string }[]>([]);
   const [isAnalyzed, setIsAnalyzed] = useState(false);
   const [error, setError] = useState<string>("");
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1); // set current page to 1 in first initialization
+  }, [repoUrl]);
 
   const handleAnalyze = async () => {
     setError("");
@@ -37,13 +52,17 @@ export default function Issues() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoUrl }),
+        body: JSON.stringify({ 
+          repoUrl,
+          page: 1,
+        }),
       });
       const data = await response.json();
       if (data.error) {
         setError(data.error);
       } else {
         setIssues(data.issues);
+        setTotalPages(data.totalPages);
         setIsAnalyzed(true);
       }
     } catch (error) {
@@ -53,9 +72,36 @@ export default function Issues() {
     setIsAnalyzing(false);
   };
 
-  const filteredIssues = issues.filter(issue =>
-    issue.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+
+  const fetchPageIssues = async (pageNumber: number) => {
+    setIsAnalyzing(true);
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          repoUrl,
+          page: pageNumber,
+        }),
+      });
+      const data = await response.json();
+      console.log(data)
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setIssues(data.issues);
+      }
+    } catch (error) {
+      console.error("Error fetching issues:", error);
+      setError("Failed to fetch issues");
+    }
+    setIsAnalyzing(false);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    fetchPageIssues(page);
+  };
 
   const handleNewRepo = () => {
     setRepoUrl("");
@@ -63,6 +109,163 @@ export default function Issues() {
     setIsAnalyzed(false);
     setError(""); 
   };
+
+  // Generate pagination items dynamically
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxPagesToShow = 5; // Maximum number of page numbers to show
+    
+    // Add Previous button
+    items.push(
+      <PaginationItem key="prev">
+        <PaginationPrevious 
+          onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
+          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+        />
+      </PaginationItem>
+    );
+
+    // Logic for showing page numbers with ellipsis
+    if (totalPages <= maxPagesToShow) {
+      // Show all pages if total is less than max to show
+      for (let i = 1; i <= totalPages; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink 
+              isActive={currentPage === i}
+              onClick={() => handlePageChange(i)}
+              className="cursor-pointer"
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    } else {
+      // Always show first page
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink 
+            isActive={currentPage === totalPages}
+            onClick={() => handlePageChange(1)}
+            className="cursor-pointer"
+          >
+            1
+          </PaginationLink>
+        </PaginationItem>
+      );
+
+      // Determine range to show based on current page
+      let startPage: number, endPage: number;
+      
+      if (currentPage <= 3) {
+        // Near the beginning
+        startPage = 2;
+        endPage = 4;
+        
+        items.push(...Array.from({length: endPage - startPage + 1}, (_, i) => {
+          const page = startPage + i;
+          return (
+            <PaginationItem key={page}>
+              <PaginationLink 
+                isActive={currentPage === page}
+                onClick={() => handlePageChange(page)}
+                className="cursor-pointer"
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          );
+        }));
+        
+        items.push(
+          <PaginationItem key="ellipsis1">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+      } else if (currentPage >= totalPages - 2) {
+        // Near the end
+        items.push(
+          <PaginationItem key="ellipsis1">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+        
+        startPage = totalPages - 3;
+        endPage = totalPages - 1;
+        
+        items.push(...Array.from({length: endPage - startPage + 1}, (_, i) => {
+          const page = startPage + i;
+          return (
+            <PaginationItem key={page}>
+              <PaginationLink 
+                isActive={currentPage === page}
+                onClick={() => handlePageChange(page)}
+                className="cursor-pointer"
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          );
+        }));
+      } else {
+        // In the middle
+        items.push(
+          <PaginationItem key="ellipsis1">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+        
+        startPage = currentPage - 1;
+        endPage = currentPage + 1;
+        
+        items.push(...Array.from({length: endPage - startPage + 1}, (_, i) => {
+          const page = startPage + i;
+          return (
+            <PaginationItem key={page}>
+              <PaginationLink 
+                isActive={currentPage === page}
+                onClick={() => handlePageChange(page)}
+                className="cursor-pointer"
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          );
+        }));
+        
+        items.push(
+          <PaginationItem key="ellipsis2">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+      }
+
+      // Always show last page
+      items.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink 
+            isActive={currentPage === totalPages}
+            onClick={() => handlePageChange(totalPages)}
+            className="cursor-pointer"
+          >
+            {totalPages}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+  // Add Next button
+  items.push(
+    <PaginationItem key="next">
+      <PaginationNext 
+        onClick={() => currentPage < totalPages && handlePageChange(currentPage + 1)}
+        className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+      />
+    </PaginationItem>
+  );
+
+  return items;
+};
 
 
   return (
@@ -114,9 +317,13 @@ export default function Issues() {
               </CardContent>
             </Card>
 
-            <div className="overflow-y-auto max-h-150">
-              {filteredIssues.length > 0 ? (
-                filteredIssues.map((issue) => (
+            <div className="overflow-y-auto max-h-[600px]">
+              {issues.length > 0 ? (
+                issues.map((issue: { 
+                  id: Key | null | undefined; 
+                  html_url: string | undefined; 
+                  title: string ; 
+                }) => (
                   <Card key={issue.id} className="mt-2">
                     <CardContent>
                       <a
@@ -130,9 +337,20 @@ export default function Issues() {
                   </Card>
                 ))
               ) : (
-                <p className="text-gray-500">No issues found.</p>
+                <p className="text-gray-500">
+                  {isAnalyzing ? "Loading issues..." : "No issues found."}
+                </p>
               )}
             </div>
+            
+            {totalPages > 1 && (
+              <Pagination className="mt-4">
+                <PaginationContent>
+                  {renderPaginationItems()}
+                </PaginationContent>
+              </Pagination>
+            )}
+
           </div>
 
           <div>
