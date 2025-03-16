@@ -11,21 +11,8 @@ export default async function handler(req, res) {
     }
 
     const repoPath = repoUrl.replace("https://github.com/", "");
-    const countResponse = await fetch(`https://api.github.com/search/issues?q=repo:${repoPath}+is:issue+is:open&per_page=1`, {
-      headers: {
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "GitHub-Issues-Fetcher"
-      }
-    });
 
-    if (!countResponse.ok) {
-      throw new Error(`GitHub API error: ${countResponse.statusText}`);
-    }
-
-    const countData = await countResponse.json();
-    const totalCount = countData.total_count;
-
-    const response = await fetch(`https://api.github.com/repos/${repoPath}/issues?state=open&per_page=${perPage}&page=${page}`, {
+    const response = await fetch(`https://api.github.com/search/issues?q=repo:${repoPath}+is:issue+is:open&per_page=${perPage}&page=${page}`, {
       headers: {
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": "GitHub-Issues-Fetcher"
@@ -36,13 +23,12 @@ export default async function handler(req, res) {
       throw new Error(`GitHub API error: ${response.statusText}`);
     }
 
-    const issues = await response.json();
-
-    // Exclude pull requests
-    const filteredIssues = issues.filter(issue => !issue.pull_request);
+    const searchData = await response.json();
+    const issues = searchData.items;
+    const totalCount = searchData.total_count;
 
     res.status(200).json({ 
-      issues: filteredIssues,
+      issues: issues,
       totalCount: totalCount,
       page: page,
       perPage: perPage,

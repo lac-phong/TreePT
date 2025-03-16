@@ -15,7 +15,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal, useEffect, useState } from "react";
+import { Key, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -30,8 +30,8 @@ export default function Issues() {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    setCurrentPage(1); // Reset page when issues change
-  }, [issues]);
+    setCurrentPage(1); // set current page to 1 in first initialization
+  }, [repoUrl]);
 
   const handleAnalyze = async () => {
     setError("");
@@ -85,6 +85,7 @@ export default function Issues() {
         }),
       });
       const data = await response.json();
+      console.log(data)
       if (data.error) {
         setError(data.error);
       } else {
@@ -145,7 +146,7 @@ export default function Issues() {
       items.push(
         <PaginationItem key={1}>
           <PaginationLink 
-            isActive={currentPage === 1}
+            isActive={currentPage === totalPages}
             onClick={() => handlePageChange(1)}
             className="cursor-pointer"
           >
@@ -155,7 +156,7 @@ export default function Issues() {
       );
 
       // Determine range to show based on current page
-      let startPage: number, endPage;
+      let startPage: number, endPage: number;
       
       if (currentPage <= 3) {
         // Near the beginning
@@ -321,7 +322,7 @@ export default function Issues() {
                 issues.map((issue: { 
                   id: Key | null | undefined; 
                   html_url: string | undefined; 
-                  title: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; 
+                  title: string ; 
                 }) => (
                   <Card key={issue.id} className="mt-2">
                     <CardContent>
