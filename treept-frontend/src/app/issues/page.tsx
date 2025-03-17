@@ -342,7 +342,6 @@ export default function Issues() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                   <Button
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     onClick={(e) => searchIssues(currentPage, searchQuery)}
                     className="bg-green-500 text-white hover:bg-green-600"
                   >
