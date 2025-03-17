@@ -98,6 +98,34 @@ export default function Issues() {
     setIsAnalyzing(false);
   };
 
+  const searchIssues = async (pageNumber: number, searchTerm: string) => {
+    setIsAnalyzing(true);
+    setCurrentPage(pageNumber);
+    try {
+      const response = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          repoUrl,
+          searchTerm,
+          page: pageNumber,
+        }),
+      });
+      const data = await response.json();
+      console.log(data)
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setIssues(data.issues);
+      }
+    } catch (error) {
+      console.error("Error fetching issues:", error);
+      setError("Failed to fetch issues");
+    }
+    setIsAnalyzing(false);
+  };
+
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     fetchPageIssues(page);
@@ -313,6 +341,13 @@ export default function Issues() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
+                  <Button
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    onClick={(e) => searchIssues(currentPage, searchQuery)}
+                    className="bg-green-500 text-white hover:bg-green-600"
+                  >
+                    {isAnalyzing ? "Searching..." : "Search"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
