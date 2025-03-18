@@ -43,7 +43,7 @@ export default function Home() {
   }, []);
 
   const handleGetStartedClick = () => {
-    router.push("/issues");
+    router.push("/github");
   };
 
   return (

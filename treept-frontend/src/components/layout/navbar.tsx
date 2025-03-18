@@ -29,7 +29,7 @@ export const Navbar = () => {
               About
             </Link>
             <Link
-              href="/issues"
+              href="/github"
               className={`text-sm font-medium ${
                 pathname.includes('/issues')
                   ? 'text-white'
