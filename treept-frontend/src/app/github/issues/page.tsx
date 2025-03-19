@@ -307,7 +307,7 @@ export default function Issues() {
             </CardContent>
           </Card>
 
-          <div className="overflow-y-auto max-h-[600px]">
+          <div className="overflow-y-auto max-h-[600px] flex flex-col gap-2">
             {issues.length > 0 ? (
               issues.map((issue: { 
                 number: number | null | undefined; 
@@ -315,13 +315,14 @@ export default function Issues() {
                 title: string ; 
               }) => {
                 return ( 
-                  <Button key={issue.number} asChild className="px-4 py-12 bg-white-600 text-green-600 hover:underline">
+                  <Button key={issue.number} asChild className="w-full px-4 py-6 bg-white-600 text-green-600 hover:underline text-left h-auto justify-start">
                       <Link href={{
                           pathname: "/github/issues/solution",
                           query: {
                               repoUrl: repoUrl,
                               issue: issue.number
                           }}} 
+                          className="text-left w-full"
                           >{issue.title}</Link>
                   </Button>
                 )

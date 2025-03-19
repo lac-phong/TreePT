@@ -104,9 +104,9 @@ export default function Solution() {
                     )}
                 </CardHeader>
                 <CardContent>
-                  <div className="h-96 bg-gray-100 flex items-center justify-center rounded-lg">
+                  <div className="h-96 bg-gray-100 rounded-lg overflow-y-auto p-4">
                   {issueContent ? (
-                    <p>
+                    <p className="whitespace-pre-wrap">
                         {issueContent}
                     </p>
                     ) : (
