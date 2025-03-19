@@ -15,7 +15,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Key, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export default function Issues() {
   const [repoUrl, setRepoUrl] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [issues, setIssues] = useState<{ id: number; title: string; html_url: string }[]>([]);
+  const [issues, setIssues] = useState<{ number: number; title: string; html_url: string }[]>([]);
   const [error, setError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [searchTotal, setSearchTotal] = useState(0);
@@ -79,7 +79,6 @@ export default function Issues() {
         }),
       });
       const data = await response.json();
-      console.log(data)
       if (data.error) {
         setError(true);
         setErrorMessage(data.error);
@@ -308,25 +307,26 @@ export default function Issues() {
             </CardContent>
           </Card>
 
-          <div className="overflow-y-auto max-h-[600px]">
+          <div className="overflow-y-auto max-h-[600px] flex flex-col gap-2">
             {issues.length > 0 ? (
               issues.map((issue: { 
-                id: Key | null | undefined; 
+                number: number | null | undefined; 
                 html_url: string | undefined; 
                 title: string ; 
-              }) => (
-                <Card key={issue.id} className="mt-2">
-                  <CardContent>
-                    <a
-                      href={issue.html_url}
-                      target="_blank"
-                      className="text-blue-600 hover:underline"
-                    >
-                      {issue.title}
-                    </a>
-                  </CardContent>
-                </Card>
-              ))
+              }) => {
+                return ( 
+                  <Button key={issue.number} asChild className="w-full px-4 py-6 bg-white-600 text-green-600 hover:underline text-left h-auto justify-start">
+                      <Link href={{
+                          pathname: "/github/issues/solution",
+                          query: {
+                              repoUrl: repoUrl,
+                              issue: issue.number
+                          }}} 
+                          className="text-left w-full"
+                          >{issue.title}</Link>
+                  </Button>
+                )
+              })
             ) : (
               <p className="text-gray-500">
                 {isAnalyzing ? "Loading issues..." : "No issues found."}
