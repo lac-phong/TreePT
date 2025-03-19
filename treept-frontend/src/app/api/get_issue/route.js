@@ -1,8 +1,8 @@
-export async function POST(request) {
+export async function GET(request) {
     try {
-      const body = await request.json();
-      const { repoUrl, perPage = 10, searchTerm } = body;
-      let { page = 1 } = body;
+    const { searchParams } = new URL(request.url);
+    const repoUrl = searchParams.get('repoUrl');
+    const issue = searchParams.get('issue');
   
       if (!repoUrl || !repoUrl.startsWith("https://github.com/")) {
         return Response.json(
@@ -12,14 +12,10 @@ export async function POST(request) {
       }
   
       const repoPath = repoUrl.replace("https://github.com/", "");
-      const searchQuery = searchTerm 
-        ? `repo:${repoPath}+is:issue+is:open+${encodeURIComponent(searchTerm)}+in:title` 
-        : `repo:${repoPath}+is:issue+is:open`;
   
-      const response = await fetch(`https://api.github.com/search/issues?q=${searchQuery}&per_page=${perPage}&page=${page}`, {
+      const response = await fetch(`https://api.github.com/repos/${repoPath}/issues/${issue}`, {
         headers: {
-          "Accept": "application/vnd.github.v3+json",
-          "User-Agent": "GitHub-Issues-Fetcher"
+          "Accept": "application/vnd.github.text+json"
         }
       });
   
@@ -27,16 +23,10 @@ export async function POST(request) {
         throw new Error(`GitHub API error: ${response.statusText}`);
       }
   
-      const searchData = await response.json();
-      const issues = searchData.items;
-      const totalCount = searchData.total_count;
+      const issue_data = await response.json();
   
       return Response.json({ 
-        issues: issues,
-        totalCount: totalCount,
-        page: page,
-        perPage: perPage,
-        totalPages: Math.ceil(totalCount / perPage)
+        issue: issue_data
       });
     } catch (error) {
       console.error(error);

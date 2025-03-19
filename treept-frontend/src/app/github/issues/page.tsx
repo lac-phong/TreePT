@@ -15,7 +15,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Key, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -314,21 +314,16 @@ export default function Issues() {
                 html_url: string | undefined; 
                 title: string ; 
               }) => {
-                console.log('Issue ID:', issue.number);
                 return ( 
-                  <Card key={issue.number} className="mt-2">
-                    <CardContent>
-                      <Button key={issue.number} asChild className="bg-white-600 text-green-600 hover:underline">
-                          <Link href={{
-                              pathname: "/github/issues/solution",
-                              query: {
-                                  repoUrl: repoUrl,
-                                  issue: issue.number
-                              }}} 
-                              >{issue.title}</Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  <Button key={issue.number} asChild className="px-4 py-12 bg-white-600 text-green-600 hover:underline">
+                      <Link href={{
+                          pathname: "/github/issues/solution",
+                          query: {
+                              repoUrl: repoUrl,
+                              issue: issue.number
+                          }}} 
+                          >{issue.title}</Link>
+                  </Button>
                 )
               })
             ) : (
