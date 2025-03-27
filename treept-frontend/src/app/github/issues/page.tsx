@@ -1,5 +1,22 @@
 "use client";
 
+interface RepoItem {
+  path: string;
+  type: string;
+}
+
+interface RepoData {
+  tree: RepoItem[];
+}
+
+interface TreeNode {
+  name: string;
+  children: TreeNode[];
+  type: 'file' | 'folder';
+  path: string;
+  fileType?: 'page' | 'api' | 'component' | 'code' | 'other';
+}
+
 import {
   Card,
   CardContent,
@@ -15,15 +32,16 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { parseStringDef } from "openai/_vendor/zod-to-json-schema/index.mjs";
+import * as d3 from 'd3';
 
 export default function Issues() {
   const [repoUrl, setRepoUrl] = useState("");
+  const [repoData, setRepoData] = useState<TreeNode | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [inputValue, setInputValue] = useState(searchQuery);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -32,17 +50,31 @@ export default function Issues() {
   const [errorMessage, setErrorMessage] = useState("");
   const [searchTotal, setSearchTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const svgContainerRef = useRef<HTMLDivElement | null>(null);
 
   const searchParams = useSearchParams();
 
+  const clearErrors = () => {
+    setError(false);
+    setErrorMessage("");
+  };
+
+  const handleError = (message: string) => {
+    setError(true);
+    setErrorMessage(message);
+  };
+
+  useEffect(() => {
+    if (repoUrl) {
+      fetchRepoData();
+    }
+  }, [repoUrl]);
+
   useEffect(() => {
     if (!searchParams) {
-      setError(true);
-      setErrorMessage("Unable to access URL parameters");
+      handleError("Unable to access URL parameters");
       return;
     }
-
-    console.log(searchParams.get("repoUrl"))
 
     const repoUrlParam = searchParams.get("repoUrl");
     const queryParam = searchParams.get("searchQuery");
@@ -54,8 +86,7 @@ export default function Issues() {
       setInputValue(queryParam !== null && queryParam !== undefined ? queryParam : "");
       setCurrentPage(pageParam ? parseInt(pageParam) : 1);
     } else {
-      setError(true);
-      setErrorMessage("Invalid Github URL");
+      handleError("Invalid Github URL");
     }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -69,10 +100,17 @@ export default function Issues() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repoUrl, searchQuery, currentPage]);
 
-  const clearErrors = () => {
-    setError(false);
-    setErrorMessage("");
-  };
+  // Refresh the diagram when the window resizes
+  useEffect(() => {
+    const handleResize = () => {
+      if (repoData) {
+        renderTreeDiagram(repoData);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [repoData]);
 
   const searchIssues = async (pageNumber: number, searchTerm: string) => {
     setIsAnalyzing(true);
@@ -89,16 +127,14 @@ export default function Issues() {
       });
       const data = await response.json();
       if (data.error) {
-        setError(true);
-        setErrorMessage(data.error);
+        handleError(data.error);
       } else {
         setSearchTotal(data.totalPages);
         setIssues(data.issues);
       }
     } catch (error) {
       console.error("Error fetching issues:", error);
-      setError(true);
-      setErrorMessage("Failed to fetch issues");
+      handleError("Failed to fetch issues");
     }
     setIsAnalyzing(false);
   };
@@ -295,6 +331,213 @@ export default function Issues() {
   return items;
 };
 
+  const fetchRepoData = async () => {
+    setIsAnalyzing(true);
+    
+    try {
+      const response = await fetch(`/api/get_repo?repoUrl=${encodeURIComponent(repoUrl)}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        setError(data.error);
+      } else {
+        const processedData = processRepoData(data.structure);
+        setRepoData(processedData);
+        renderTreeDiagram(processedData);
+      }
+    } catch (error) {
+      console.error("Error fetching repository structure:", error);
+      handleError("Failed to fetch repository structure");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // Process repository data into a hierarchical structure
+  const processRepoData = (data: RepoData): TreeNode => {
+    const root: TreeNode = { 
+      name: 'root', 
+      children: [], 
+      type: 'folder',
+      path: '' 
+    };
+    
+    // Filter out excluded files and directories
+    const filteredPaths = data.tree
+      .filter(item => {
+        const path = item.path;
+        return !path.includes('node_modules') && 
+              !path.startsWith('.next') && 
+              !path.endsWith('.json') && 
+              !path.endsWith('README.md') && 
+              !path.endsWith('.gitignore') && 
+              !path.endsWith('.env') &&
+              !path.includes('config');
+      });
+    
+    // Build tree structure
+    filteredPaths.forEach(item => {
+      const parts = item.path.split('/');
+      let currentNode = root;
+      
+      parts.forEach((part, index) => {
+        // Check if we're at the final part (file) or an intermediate part (folder)
+        const isFile = index === parts.length - 1 && item.type === 'blob';
+        
+        // Find existing node or create new one
+        let foundNode = currentNode.children.find(node => node.name === part);
+        
+        if (!foundNode) {
+          const newNode: TreeNode = { 
+            name: part,
+            children: [],
+            type: isFile ? 'file' : 'folder',  // These are now literal types matching the interface
+            path: parts.slice(0, index + 1).join('/')
+          };
+          
+          // Categorize file types for Next.js projects
+          if (isFile) {
+            if (part.endsWith('.js') || part.endsWith('.jsx') || part.endsWith('.ts') || part.endsWith('.tsx')) {
+              const path = parts.join('/');
+              
+              if (path.includes('/pages/') || path.includes('/app/') && (part.startsWith('page.') || part.includes('layout.'))) {
+                newNode.fileType = 'page';
+              } else if (path.includes('/api/') || path.includes('route.')) {
+                newNode.fileType = 'api';
+              } else if (path.includes('/components/') || /[A-Z]/.test(part[0])) {
+                newNode.fileType = 'component';
+              } else {
+                newNode.fileType = 'code';
+              }
+            } else {
+              newNode.fileType = 'other';
+            }
+          }
+          
+          currentNode.children.push(newNode);
+          foundNode = newNode;
+        }
+        
+        if (!isFile) {
+          currentNode = foundNode;
+        }
+      });
+    });
+    return root;
+  };
+
+  const renderTreeDiagram = (data: TreeNode): void => {
+    if (!data || !svgContainerRef.current) {
+      console.log(svgContainerRef.current)
+      return;
+    } 
+
+    console.log("Render tree diagram called with data:", data);
+    console.log("SVG container ref exists:", !!svgContainerRef.current);
+
+    // Clear previous content
+    while (svgContainerRef.current.firstChild) {
+      svgContainerRef.current.removeChild(svgContainerRef.current.firstChild);
+    }
+
+    setTimeout(() => {
+      const width = svgContainerRef.current ? svgContainerRef.current.clientWidth : 0;
+      const height = 600;
+      const margin = { top: 20, right: 30, bottom: 20, left: 120 };
+      
+      // Create SVG container
+      const svg = d3.select(svgContainerRef.current)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+      
+      // Create hierarchical layout
+      const root = d3.hierarchy(data) as d3.HierarchyNode<TreeNode>;
+      
+      const treeLayout = d3.tree<TreeNode>()
+      .size([height - margin.top - margin.bottom, width - margin.left - margin.right - 100])
+      .separation((a, b) => (a.parent === b.parent ? 1 : 2));
+      
+      // Compute the new tree layout
+      const treeData = treeLayout(root);
+      
+      // Add links between nodes
+      svg.selectAll('.link')
+        .data(treeData.links())
+        .enter()
+        .append('path')
+        .attr('class', 'link')
+        .attr('d', d => {
+          return `M${d.source.y},${d.source.x}
+                  C${(d.source.y + d.target.y) / 2},${d.source.x}
+                  ${(d.source.y + d.target.y) / 2},${d.target.x}
+                  ${d.target.y},${d.target.x}`;
+        })
+        .attr('fill', 'none')
+        .attr('stroke', '#ccc')
+        .attr('stroke-width', 1.5);
+      
+      // Add nodes
+      const nodes = svg.selectAll('.node')
+        .data(treeData.descendants())
+        .enter()
+        .append('g')
+        .attr('class', 'node')
+        .attr('transform', d => `translate(${d.y},${d.x})`);
+      
+      // Determine node color based on type
+      const getNodeColor = (d: d3.HierarchyPointNode<any>): string => {
+        const nodeData = d.data as TreeNode;
+        if (nodeData.type === 'folder') return '#90caf9'; // Folder color (blue)
+        
+        // File colors based on type
+        switch (nodeData.fileType) {
+          case 'page': return '#81c784'; // Page files (green)
+          case 'api': return '#ffb74d'; // API/Route files (orange)
+          case 'component': return '#ce93d8'; // Component files (purple)
+          case 'code': return '#e57373'; // Other code files (red)
+          default: return '#e0e0e0'; // Other files (grey)
+        }
+      };
+      
+      // Add circles for nodes
+      nodes.append('circle')
+        .attr('r', 6)
+        .attr('fill', getNodeColor);
+      
+      // Add icons (simplified for client component)
+      nodes.append('text')
+        .attr('dy', 3)
+        .attr('x', -8)
+        .attr('text-anchor', 'end')
+        .attr('font-family', 'FontAwesome')
+        .text(d => {
+          const nodeData = d.data as TreeNode;
+          if (nodeData.type === 'folder') return '\uf07b'; // folder icon
+          if (nodeData.fileType === 'page') return '\uf15c'; // page icon
+          if (nodeData.fileType === 'api') return '\uf0ac'; // api icon
+          if (nodeData.fileType === 'component') return '\uf121'; // component icon
+          return '\uf15b'; // default file icon
+        })
+        .attr('font-size', '10px')
+        .attr('fill', '#555');
+      
+      // Add labels
+      nodes.append('text')
+        .attr('dy', '0.31em')
+        .attr('x', d => d.children ? -12 : 12)
+        .attr('text-anchor', d => d.children ? 'end' : 'start')
+        .text(d => (d.data as TreeNode).name)
+        .style('font-size', '12px')
+        .style('fill', '#333');
+    }, 100);
+  };
 
   return (
     <div className="flex flex-col items-center justify-start pt-4 space-y-4">
@@ -388,16 +631,52 @@ export default function Issues() {
           )}
 
         </div>
-
         <div>
-          <Card>
+          <Card className="w-full">
             <CardHeader>
-              <CardTitle>Context Tree</CardTitle>
+              <CardTitle>Repository Structure</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-96 bg-gray-100 flex items-center justify-center rounded-lg">
-                <p className="text-gray-500">Context tree visualization coming soon...</p>
-              </div>
+              {error && (
+                <div className="p-4 mb-4 bg-red-100 text-red-700 rounded">
+                  Error: {error}
+                </div>
+              )}
+              
+              {isAnalyzing ? (
+                <div className="flex justify-center items-center h-96">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-400"></div>
+                      <span className="text-xs">Folder</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                      <span className="text-xs">Page</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-orange-400"></div>
+                      <span className="text-xs">API/Route</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-purple-400"></div>
+                      <span className="text-xs">Component</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                      <span className="text-xs">Other Code</span>
+                    </div>
+                  </div>
+                  <div 
+                    ref={svgContainerRef} 
+                    className="overflow-auto h-96 border rounded"
+                  ></div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
