@@ -32,7 +32,9 @@ export default function Github() {
                 <Link href={{
                     pathname: "/github/issues",
                     query: {
-                        repoUrl: repoUrl
+                        repoUrl: repoUrl,
+                        searchQuery: "",
+                        page: 1
                     }}} 
                     className="bg-green-500 text-white hover:bg-green-600" >Analyze</Link>
             </Button>
