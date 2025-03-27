@@ -20,10 +20,12 @@ import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { parseStringDef } from "openai/_vendor/zod-to-json-schema/index.mjs";
 
 export default function Issues() {
   const [repoUrl, setRepoUrl] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [inputValue, setInputValue] = useState(searchQuery);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [issues, setIssues] = useState<{ number: number; title: string; html_url: string }[]>([]);
   const [error, setError] = useState(false);
@@ -40,25 +42,32 @@ export default function Issues() {
       return;
     }
 
+    console.log(searchParams.get("repoUrl"))
+
     const repoUrlParam = searchParams.get("repoUrl");
+    const queryParam = searchParams.get("searchQuery");
+    const pageParam = searchParams.get("page");
+
     if (repoUrlParam) {
       setRepoUrl(repoUrlParam);
+      setSearchQuery(queryParam !== null && queryParam !== undefined ? queryParam : "");
+      setInputValue(queryParam !== null && queryParam !== undefined ? queryParam : "");
+      setCurrentPage(pageParam ? parseInt(pageParam) : 1);
     } else {
       setError(true);
       setErrorMessage("Invalid Github URL");
     }
-    
-    setCurrentPage(1);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     // This will run whenever repoUrl changes
     if (repoUrl) {
-      handlePageChange(currentPage, "");
+      searchIssues(currentPage, searchQuery);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repoUrl]);
+  }, [repoUrl, searchQuery, currentPage]);
 
   const clearErrors = () => {
     setError(false);
@@ -96,8 +105,14 @@ export default function Issues() {
 
 
   const handlePageChange = (page: number, searchTerm: string) => {
-    setCurrentPage(page);
-    searchIssues(page, searchTerm);
+    // Only update if values are actually different
+    if (page !== currentPage) {
+      setCurrentPage(page);
+    }
+    // Only search if term is different or explicit search requested
+    if (searchTerm !== searchQuery) {
+      setSearchQuery(searchTerm);
+    }
   };
 
   // Generate pagination items dynamically
@@ -109,7 +124,12 @@ export default function Issues() {
     items.push(
       <PaginationItem key="prev">
         <PaginationPrevious 
-          onClick={() => currentPage > 1 && handlePageChange(currentPage - 1, searchTerm)}
+          onClick={() => {
+            if (currentPage > 1) {
+              setCurrentPage(currentPage - 1)
+              handlePageChange(currentPage - 1, searchTerm)
+            }
+          }}
           className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
         />
       </PaginationItem>
@@ -123,7 +143,10 @@ export default function Issues() {
           <PaginationItem key={i}>
             <PaginationLink 
               isActive={currentPage === i}
-              onClick={() => handlePageChange(i, searchTerm)}
+              onClick={() => {
+                setCurrentPage(i)
+                handlePageChange(i, searchTerm) 
+              }}
               className="cursor-pointer"
             >
               {i}
@@ -137,7 +160,10 @@ export default function Issues() {
         <PaginationItem key={1}>
           <PaginationLink 
             isActive={currentPage === 1}
-            onClick={() => handlePageChange(1, searchTerm)}
+            onClick={() => {
+              setCurrentPage(1)
+              handlePageChange(1, searchTerm) 
+            }}
             className="cursor-pointer"
           >
             1
@@ -159,7 +185,10 @@ export default function Issues() {
             <PaginationItem key={page}>
               <PaginationLink 
                 isActive={currentPage === page}
-                onClick={() => handlePageChange(page, searchTerm)}
+                onClick={() => {
+                  setCurrentPage(page)
+                  handlePageChange(page, searchTerm) 
+                }}
                 className="cursor-pointer"
               >
                 {page}
@@ -190,7 +219,10 @@ export default function Issues() {
             <PaginationItem key={page}>
               <PaginationLink 
                 isActive={currentPage === page}
-                onClick={() => handlePageChange(page, searchTerm)}
+                onClick={() => {
+                  setCurrentPage(page)
+                  handlePageChange(page, searchTerm) 
+                }}
                 className="cursor-pointer"
               >
                 {page}
@@ -215,7 +247,10 @@ export default function Issues() {
             <PaginationItem key={page}>
               <PaginationLink 
                 isActive={currentPage === page}
-                onClick={() => handlePageChange(page, searchTerm)}
+                onClick={() => {
+                  setCurrentPage(page)
+                  handlePageChange(page, searchTerm) 
+                }}
                 className="cursor-pointer"
               >
                 {page}
@@ -236,7 +271,10 @@ export default function Issues() {
         <PaginationItem key={totalPages}>
           <PaginationLink 
             isActive={currentPage === totalPages}
-            onClick={() => handlePageChange(totalPages, searchTerm)}
+            onClick={() => {
+              setCurrentPage(totalPages)
+              handlePageChange(totalPages, searchTerm) 
+            }}
             className="cursor-pointer"
           >
             {totalPages}
@@ -294,11 +332,16 @@ export default function Issues() {
                 <Input
                   type="text"
                   placeholder="Search issues"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
                 />
                 <Button
-                  onClick={(e) => searchIssues(1, searchQuery)}
+                  onClick={() => {
+                    if (inputValue !== searchQuery) {
+                      setSearchQuery(inputValue);
+                      setCurrentPage(1); // Reset to page 1 on new search
+                    }
+                  }}
                   className="bg-green-500 text-white hover:bg-green-600"
                 >
                   {isAnalyzing ? "Searching..." : "Search"}
@@ -320,7 +363,9 @@ export default function Issues() {
                           pathname: "/github/issues/solution",
                           query: {
                               repoUrl: repoUrl,
-                              issue: issue.number
+                              issue: issue.number,
+                              searchQuery: searchQuery,
+                              page: currentPage
                           }}} 
                           className="text-left w-full"
                           >{issue.title}</Link>

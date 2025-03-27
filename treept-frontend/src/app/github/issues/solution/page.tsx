@@ -6,9 +6,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 export default function Solution() {
     const [issueTitle, setIssueTitle] = useState("");
@@ -91,6 +93,16 @@ export default function Solution() {
               </button>
             </div>
           )}
+          <Button asChild>
+                <Link href={{
+                    pathname: "/github/issues",
+                    query: {
+                        repoUrl: searchParams.get("repoUrl"),
+                        searchQuery: searchParams.get("searchQuery"),
+                        page: searchParams.get("page")
+                    }}} 
+                    className="bg-green-500 text-white hover:bg-green-600" >Back</Link>
+          </Button>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl">
             <div>
               <Card>
