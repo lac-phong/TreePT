@@ -93,16 +93,23 @@ export default function Solution() {
               </button>
             </div>
           )}
-          <Button asChild>
-                <Link href={{
-                    pathname: "/github/issues",
-                    query: {
-                        repoUrl: searchParams.get("repoUrl"),
-                        searchQuery: searchParams.get("searchQuery"),
-                        page: searchParams.get("page")
-                    }}} 
-                    className="bg-green-500 text-white hover:bg-green-600" >Back</Link>
-          </Button>
+          <div className="w-full max-w-5xl flex justify-between items-center">
+            <Button asChild className="self-start">
+            <Link 
+                href={{
+                pathname: "/github/issues",
+                query: {
+                    repoUrl: searchParams.get("repoUrl"),
+                    searchQuery: searchParams.get("searchQuery"),
+                    page: searchParams.get("page")
+                }
+                }} 
+                className="bg-green-500 text-white hover:bg-green-600"
+            >
+                Back
+            </Link>
+            </Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl">
             <div>
               <Card>
