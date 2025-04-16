@@ -431,113 +431,156 @@ export default function Issues() {
   };
 
   const renderTreeDiagram = (data: TreeNode): void => {
-    if (!data || !svgContainerRef.current) {
-      console.log(svgContainerRef.current)
-      return;
-    } 
+    if (!data || !svgContainerRef.current) return;
+    
+    // setup 
+    const container = svgContainerRef.current;
+    const width  = container.clientWidth  || 1000;
+    const height = container.clientHeight || 800;
+    const margin = { top: 40, right: 40, bottom: 40, left: 160 };
+    const duration = 400;                      
+    let i = 0;       
+  
+    d3.select(container).selectAll("*").remove(); // clears old svg
+  
 
-    console.log("Render tree diagram called with data:", data);
-    console.log("SVG container ref exists:", !!svgContainerRef.current);
+    // pan/zoom
+    const zoomed = ({ transform }: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
+      g.attr("transform", transform.toString());
+    };
+  
+    const svg = d3
+    .select(container)
+    .append('svg')
+    .attr('width', '100%')
+    .attr('height', height)
+    .call(
+      d3.zoom<SVGSVGElement, unknown>()
+        .scaleExtent([0.25, 4])             
+        .on('zoom', zoomed)
+    );
 
-    // Clear previous content
-    while (svgContainerRef.current.firstChild) {
-      svgContainerRef.current.removeChild(svgContainerRef.current.firstChild);
+    // root g that moves when we pan/zoom
+    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+  
+    // builds hierarchy
+    const root = d3.hierarchy(data) as any;
+    root.x0 = 0;
+    root.y0 = 0;
+  
+    // Collapse everything below depth 2 to declutter the first view
+    root.children?.forEach(collapse);
+    update(root);                                   
+  
+    function collapse(d: any) {
+      if (d.depth > 1 && d.children) {
+        d._children = d.children;
+        d._children.forEach(collapse);
+        d.children = null;
+      } else if (d.children) {
+        d.children.forEach(collapse);
+      }
     }
+  
+    // node color key
+    function getNodeColor(d: any) {
+      const t: TreeNode = d.data;
+      if (t.type === "folder") return "#90caf9";
+      switch (t.fileType) {
+        case "page":      return "#81c784";
+        case "api":       return "#ffb74d";
+        case "component": return "#ce93d8";
+        case "code":      return "#e57373";
+        default:          return "#e0e0e0";
+      }
+    }
+  
+    // main render/update loop
+    function update(source: any) {
 
-    setTimeout(() => {
-      const width = svgContainerRef.current ? svgContainerRef.current.clientWidth : 0;
-      const height = 600;
-      const margin = { top: 20, right: 30, bottom: 20, left: 120 };
-      
-      // Create SVG container
-      const svg = d3.select(svgContainerRef.current)
-        .append('svg')
-        .attr('width', width)
-        .attr('height', height)
-        .append('g')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
-      
-      // Create hierarchical layout
-      const root = d3.hierarchy(data) as d3.HierarchyNode<TreeNode>;
-      
-      const treeLayout = d3.tree<TreeNode>()
-      .size([height - margin.top - margin.bottom, width - margin.left - margin.right - 100])
-      .separation((a, b) => (a.parent === b.parent ? 1 : 2));
-      
-      // Compute the new tree layout
-      const treeData = treeLayout(root);
-      
-      // Add links between nodes
-      svg.selectAll('.link')
-        .data(treeData.links())
-        .enter()
-        .append('path')
-        .attr('class', 'link')
-        .attr('d', d => {
-          return `M${d.source.y},${d.source.x}
-                  C${(d.source.y + d.target.y) / 2},${d.source.x}
-                  ${(d.source.y + d.target.y) / 2},${d.target.x}
-                  ${d.target.y},${d.target.x}`;
-        })
-        .attr('fill', 'none')
-        .attr('stroke', '#ccc')
-        .attr('stroke-width', 1.5);
-      
-      // Add nodes
-      const nodes = svg.selectAll('.node')
-        .data(treeData.descendants())
-        .enter()
-        .append('g')
-        .attr('class', 'node')
-        .attr('transform', d => `translate(${d.y},${d.x})`);
-      
-      // Determine node color based on type
-      const getNodeColor = (d: d3.HierarchyPointNode<any>): string => {
-        const nodeData = d.data as TreeNode;
-        if (nodeData.type === 'folder') return '#90caf9'; // Folder color (blue)
-        
-        // File colors based on type
-        switch (nodeData.fileType) {
-          case 'page': return '#81c784'; // Page files (green)
-          case 'api': return '#ffb74d'; // API/Route files (orange)
-          case 'component': return '#ce93d8'; // Component files (purple)
-          case 'code': return '#e57373'; // Other code files (red)
-          default: return '#e0e0e0'; // Other files (grey)
-        }
-      };
-      
-      // Add circles for nodes
-      nodes.append('circle')
-        .attr('r', 6)
-        .attr('fill', getNodeColor);
-      
-      // Add icons (simplified for client component)
-      nodes.append('text')
-        .attr('dy', 3)
-        .attr('x', -8)
-        .attr('text-anchor', 'end')
-        .attr('font-family', 'FontAwesome')
-        .text(d => {
-          const nodeData = d.data as TreeNode;
-          if (nodeData.type === 'folder') return '\uf07b'; // folder icon
-          if (nodeData.fileType === 'page') return '\uf15c'; // page icon
-          if (nodeData.fileType === 'api') return '\uf0ac'; // api icon
-          if (nodeData.fileType === 'component') return '\uf121'; // component icon
-          return '\uf15b'; // default file icon
-        })
-        .attr('font-size', '10px')
-        .attr('fill', '#555');
-      
-      // Add labels
-      nodes.append('text')
-        .attr('dy', '0.31em')
-        .attr('x', d => d.children ? -12 : 12)
-        .attr('text-anchor', d => d.children ? 'end' : 'start')
-        .text(d => (d.data as TreeNode).name)
-        .style('font-size', '12px')
-        .style('fill', '#333');
-    }, 100);
+      // layout
+      const tree = d3.tree<TreeNode>().nodeSize([40, 220]).separation(() => 1.4);   
+      const treeData = tree(root);
+      const nodes    = treeData.descendants();
+      const links    = treeData.links();
+  
+      // fixed‑depth horizontal spacing (already handled by nodeSize)
+      nodes.forEach((d: any) => (d.y = d.depth * 220));
+  
+      // draw / update edges
+      const link = g.selectAll<SVGPathElement, any>("path.link").data(links, (d: any) => d.target.id);
+  
+      link.enter()
+          .append("path")
+          .attr("class", "link")
+          .attr("fill", "none")
+          .attr("stroke", "#ccc")
+          .attr("stroke-width", 1.4)
+          .merge(link as any)
+          .transition()
+          .duration(duration)
+          .attr("d", linkPath);
+  
+      link.exit().remove();
+  
+      // curved connector
+      function linkPath(d: any) {
+        return `M${d.source.y},${d.source.x}
+          C${(d.source.y + d.target.y) / 2},${d.source.x}
+          ${(d.source.y + d.target.y) / 2},${d.target.x}
+          ${d.target.y},${d.target.x}`;
+      }
+
+      // draw/update nodes with labels
+      const node = g.selectAll<SVGGElement, any>("g.node").data(nodes, (d: any) => d.id || (d.id = ++i));
+    
+      // enter: new nodes start at parent's old position 
+      const nodeEnter = node.enter()
+        .append("g")
+        .attr("class", "node")
+        .attr("transform", () => `translate(${source.y0},${source.x0})`)
+        .on("click", (_, d: any) => {
+          if (d.children) {
+            d._children = d.children;
+            d.children  = null;
+          } else {
+            d.children  = d._children;
+            d._children = null;
+          }
+          update(d);                          
+        });
+  
+      // circle for the nodes
+      nodeEnter.append("circle")
+        .attr("r", 6)
+        .attr("fill", getNodeColor);
+  
+      // node labels
+      nodeEnter.append("text")
+        .attr("dy", "0.31em")
+        .attr("x", (d: any) => (d.children || d._children ? -12 : 12))
+        .attr("text-anchor", (d: any) => d.children || d._children ? "end" : "start")
+        .text((d: any) => d.data.name)
+        .style("font-size", "12px")
+        .style("fill", "#333");
+  
+      // update: move nodes to new positions
+      const nodeUpdate = nodeEnter
+        .merge(node as any)
+        .transition()
+        .duration(duration)
+        .attr("transform", (d: any) => `translate(${d.y},${d.x})`);
+  
+      // exit: nodes shrink back into parent
+      node.exit().transition().duration(duration)
+        .attr("transform", () => `translate(${source.y},${source.x})`)
+        .remove();
+
+      // saves current pos for next transition
+      nodes.forEach((d: any) => { d.x0 = d.x; d.y0 = d.y; });
+    }
   };
+  
 
   return (
     <div className="flex flex-col items-center justify-start pt-4 space-y-4">
@@ -557,7 +600,7 @@ export default function Issues() {
           </button>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-8xl">
         <div className="md:col-span-2 flex flex-col gap-4">
           <Button asChild>
             <Link href={{
@@ -673,7 +716,7 @@ export default function Issues() {
                   </div>
                   <div 
                     ref={svgContainerRef} 
-                    className="overflow-auto h-96 border rounded"
+                    className="overflow-auto h-[700px] border rounded"
                   ></div>
                 </>
               )}
