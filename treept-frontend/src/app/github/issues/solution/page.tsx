@@ -16,6 +16,8 @@ export default function Solution() {
     const [issueTitle, setIssueTitle] = useState("");
     const [issueContent, setIssueContent] = useState("");
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isGeneratingSolution, setIsGeneratingSolution] = useState(false);
+    const [solution, setSolution] = useState("");
     const [error, setError] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     
@@ -44,9 +46,17 @@ export default function Solution() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
+    // Effect to generate solution once issue content is loaded
+    useEffect(() => {
+        if (issueTitle && issueContent) {
+            generateSolution();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [issueTitle, issueContent]);
+
     const getIssue = async (repoUrl: string, issue: number) => {
         setIsAnalyzing(true);
-        clearErrors;
+        clearErrors();
         
         try {
             // Encode parameters in the URL
@@ -72,8 +82,40 @@ export default function Solution() {
           setErrorMessage("Failed to fetch issues");
         }
         setIsAnalyzing(false);
-      };
+    };
     
+    const generateSolution = async () => {
+        if (!issueTitle || !issueContent) return;
+        
+        const repoUrl = searchParams?.get("repoUrl") || "";
+        if (!repoUrl) return;
+        
+        setIsGeneratingSolution(true);
+        try {
+            const response = await fetch("/api/generate_solution", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: issueTitle,
+                    content: issueContent,
+                    repoUrl: repoUrl
+                }),
+            });
+            
+            const data = await response.json();
+            if (data.error) {
+                setError(true);
+                setErrorMessage(`Error generating solution: ${data.error}`);
+            } else {
+                setSolution(data.solution);
+            }
+        } catch (error) {
+            console.error("Error generating solution:", error);
+            setError(true);
+            setErrorMessage("Failed to generate solution");
+        }
+        setIsGeneratingSolution(false);
+    };
 
     return (
         <div className="flex flex-col items-center justify-start pt-4 space-y-4">
@@ -140,11 +182,26 @@ export default function Solution() {
             <div>
               <Card>
                 <CardHeader>
-                  <CardTitle>Solution</CardTitle>
+                  <CardTitle>AI-Generated Solution</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-96 bg-gray-100 flex items-center justify-center rounded-lg">
-                    <p className="text-gray-500">Solution coming soon...</p>
+                  <div className="h-96 bg-gray-100 rounded-lg overflow-y-auto p-4">
+                    {solution ? (
+                      <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+                        {solution}
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        {isGeneratingSolution ? (
+                          <div className="text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-700 mx-auto mb-2"></div>
+                            <p className="text-gray-500">Generating solution...</p>
+                          </div>
+                        ) : (
+                          <p className="text-gray-500">No solution generated yet.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
