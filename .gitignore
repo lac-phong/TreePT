@@ -16,6 +16,8 @@
 # next.js
 /.next/
 /out/
+/venv
+/__pycache*
 
 # production
 /build
