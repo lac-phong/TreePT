@@ -40,3 +40,30 @@ export async function POST(request) {
     );
   }
 } 
+
+// mock code to show node graph
+/* 
+export async function POST(request) {
+  try {
+    // Force mock regardless of input
+    const mockResponse = {
+      solution: "This is a mocked solution response.",
+      related_files: [
+        "pages/index.tsx",
+        "components/Navbar.tsx",
+        "components/Footer.tsx",
+        "utils/helpers.ts",
+        "api/route.js"
+      ]
+    };
+
+    return Response.json(mockResponse);
+  } catch (error) {
+    console.error("Error generating solution:", error);
+    return Response.json(
+      { error: error.message || "Mocked fallback failed." },
+      { status: 500 }
+    );
+  }
+}
+*/
