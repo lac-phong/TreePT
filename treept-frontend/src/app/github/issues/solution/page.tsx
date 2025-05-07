@@ -345,167 +345,166 @@ export default function Solution() {
     };
 
     return (
-    <div className="flex flex-col items-center justify-start pt-4 space-y-4">
-      {error && (
-        <div className="w-full max-w-5xl bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-2">
-          <span className="block sm:inline">{errorMessage}</span>
-          <button
-            onClick={clearErrors}
-            className="absolute top-0 bottom-0 right-0 px-4 py-3"
-            aria-label="Close"
-          >
-            <span className="text-xl">&times;</span>
-          </button>
+      <div className="flex flex-col items-center justify-start pt-6 space-y-6 bg-white">
+        {error && (
+          <div className="w-full max-w-7xl bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+            <span className="block sm:inline">{errorMessage}</span>
+            <button
+              onClick={clearErrors}
+              className="absolute top-0 bottom-0 right-0 px-4 py-3"
+              aria-label="Close"
+            >
+              <span className="text-xl">&times;</span>
+            </button>
+          </div>
+        )}
+    
+        <div className="w-full max-w-7xl flex justify-between items-center">
+          <Button asChild className="self-start">
+            <Link
+              href={{
+                pathname: "/github/issues",
+                query: {
+                  repoUrl: searchParams.get("repoUrl"),
+                  searchQuery: searchParams.get("searchQuery"),
+                  page: searchParams.get("page"),
+                },
+              }}
+              className="bg-green-500 text-white hover:bg-green-600"
+            >
+              Back
+            </Link>
+          </Button>
         </div>
-      )}
-
-      <div className="w-full max-w-5xl flex justify-between items-center">
-        <Button asChild className="self-start">
-          <Link
-            href={{
-              pathname: "/github/issues",
-              query: {
-                repoUrl: searchParams.get("repoUrl"),
-                searchQuery: searchParams.get("searchQuery"),
-                page: searchParams.get("page"),
-              },
-            }}
-            className="bg-green-500 text-white hover:bg-green-600"
-          >
-            Back
-          </Link>
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl">
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {issueTitle
-                  ? issueTitle
-                  : isAnalyzing
-                  ? "Loading title..."
-                  : "No title found."}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-96 bg-gray-100 rounded-lg overflow-y-auto p-4">
-                {issueContent ? (
-                  <p className="whitespace-pre-wrap">{issueContent}</p>
-                ) : (
-                  <p className="text-gray-500">
-                    {isAnalyzing ? "Loading content..." : "No content found."}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>AI-Generated Solution</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-96 bg-gray-100 rounded-lg overflow-y-auto p-4">
-                {solution ? (
-                  <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-                    {solution}
-                  </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center">
-                    {isGeneratingSolution ? (
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-700 mx-auto mb-2"></div>
-                        <p className="text-gray-500">Generating solution...</p>
+    
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 w-full max-w-7xl">
+          {/* LEFT COLUMN: Issue + Graph */}
+          <div className="flex flex-col gap-6">
+            <Card className="shadow-md rounded-2xl border border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-gray-800">
+                  {issueTitle || (isAnalyzing ? "Loading title..." : "No title found.")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="min-h-[24rem] bg-muted rounded-xl p-4 overflow-y-auto border border-gray-100">
+                  {issueContent ? (
+                    <p className="whitespace-pre-wrap text-gray-700 text-sm leading-relaxed">{issueContent}</p>
+                  ) : (
+                    <p className="text-gray-500">{isAnalyzing ? "Loading content..." : "No content found."}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+    
+            {relatedFiles.length > 0 && (
+              <Card className="shadow-md rounded-2xl border border-gray-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold text-gray-800">
+                    Related Files Graph
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div
+                    ref={svgContainerRef}
+                    className="overflow-auto max-h-[500px] bg-gray-50 border rounded-lg shadow-inner"
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+    
+          {/* RIGHT COLUMN: Solution + Chat */}
+          <div className="flex flex-col gap-6">
+            <Card className="shadow-md rounded-2xl border border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-gray-800">
+                  AI-Generated Solution
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="min-h-[24rem] bg-muted rounded-xl p-4 overflow-y-auto border border-gray-100">
+                  {solution ? (
+                    <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-800">
+                      {solution}
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center">
+                      {isGeneratingSolution ? (
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-700 mx-auto mb-2" />
+                          <p className="text-gray-500">Generating solution...</p>
+                        </div>
+                      ) : (
+                        <p className="text-gray-500">No solution generated yet.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+    
+            <Card className="shadow-md rounded-2xl border border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-gray-800">
+                  Chat with AI Assistant
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col space-y-4">
+                  <ScrollArea className="h-96 pr-4">
+                    {chatMessages.length === 0 && !solution ? (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-gray-500">Chat will be available once a solution is generated.</p>
                       </div>
                     ) : (
-                      <p className="text-gray-500">No solution generated yet.</p>
+                      <div className="flex flex-col space-y-4">
+                        {chatMessages.map((message, index) => (
+                          <div
+                            key={index}
+                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[75%] px-4 py-3 rounded-2xl shadow-sm transition-all text-sm leading-relaxed break-words
+                                ${message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}
+                            >
+                              {message.content}
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={chatEndRef} />
+                      </div>
                     )}
+                  </ScrollArea>
+    
+                  <div className="flex items-end space-x-2">
+                    <div className="flex-grow">
+                      <Textarea
+                        value={currentMessage}
+                        onChange={(e) => setCurrentMessage(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Ask a question about the solution..."
+                        disabled={!solution || isSendingMessage}
+                        className="min-h-[80px] resize-none"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!solution || !currentMessage.trim() || isSendingMessage}
+                      className="mb-1"
+                    >
+                      {isSendingMessage ? (
+                        <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full" />
+                      ) : (
+                        <Send className="h-5 w-5" />
+                      )}
+                    </Button>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
-
-      {relatedFiles.length > 0 && (
-        <Card className="w-full max-w-5xl mt-6">
-          <CardHeader>
-            <CardTitle>Related Files Graph</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              ref={svgContainerRef}
-              className="overflow-auto h-[500px] border rounded"
-            />
-          </CardContent>
-        </Card>
-      )}
-      
-      <Card className="w-full max-w-5xl">
-        <CardHeader>
-          <CardTitle>Chat with AI Assistant</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col space-y-4">
-            <ScrollArea className="h-96 pr-4">
-              {chatMessages.length === 0 && !solution ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-gray-500">Chat will be available once a solution is generated.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col space-y-4">
-                  {chatMessages.map((message, index) => (
-                    <div 
-                      key={index} 
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[75%] p-3 rounded-lg ${
-                          message.role === 'user'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 text-gray-800'
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-              )}
-            </ScrollArea>
-            
-            <div className="flex items-end space-x-2">
-              <div className="flex-grow">
-                <Textarea
-                  value={currentMessage}
-                  onChange={(e) => setCurrentMessage(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask a question about the solution..."
-                  disabled={!solution || isSendingMessage}
-                  className="min-h-[80px] resize-none"
-                />
-              </div>
-              <Button 
-                onClick={handleSendMessage} 
-                disabled={!solution || !currentMessage.trim() || isSendingMessage}
-                className="mb-1"
-              >
-                {isSendingMessage ? (
-                  <div className="animate-spin h-5 w-5 border-b-2 border-white rounded-full" />
-                ) : (
-                  <Send className="h-5 w-5" />
-                )}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+    );    
 }
