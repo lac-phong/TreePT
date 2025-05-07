@@ -38,9 +38,7 @@ class SolutionResponse(BaseModel):
 @app.post("/generate-solution", response_model=SolutionResponse)
 async def generate_solution(issue: IssueRequest):
     try:
-        # Create prompt for OpenAI
         prompt = f"""
-        You are an expert software developer tasked with providing solutions to GitHub issues.
         
         Repository: {issue.repo_url}
         Issue Title: {issue.title}
@@ -54,9 +52,9 @@ async def generate_solution(issue: IssueRequest):
         4. References or resources that might be helpful
         """
         
-        # Call OpenAI API
+        # call OpenAI API
         response = client.chat.completions.create(
-            model="gpt-4", # or any other appropriate model
+            model="gpt-4.1",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that provides solutions to GitHub issues."},
                 {"role": "user", "content": prompt}
