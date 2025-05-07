@@ -37,12 +37,12 @@ export default function Solution() {
     const [solution, setSolution] = useState("");
     const [error, setError] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [isRepoAnalysisComplete, setIsRepoAnalysisComplete] = useState(false);
+    const [isCheckingAnalysis, setIsCheckingAnalysis] = useState(false);
     const [relatedFiles, setRelatedFiles] = useState<string[]>([]);
-    
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [currentMessage, setCurrentMessage] = useState("");
     const [isSendingMessage, setIsSendingMessage] = useState(false);
-    
     const searchParams = useSearchParams();
     const svgContainerRef = useRef<HTMLDivElement | null>(null);
     const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -64,6 +64,7 @@ export default function Solution() {
 
         if (repoUrlParam && !isNaN(issueNumParam)) {
             getIssue(repoUrlParam, issueNumParam);
+            checkRepoAnalysisStatus(repoUrlParam);
         } else {
             setError(true);
             setErrorMessage("Invalid Github URL");
@@ -73,11 +74,11 @@ export default function Solution() {
 
     // Effect to generate solution once issue content is loaded
     useEffect(() => {
-        if (issueTitle && issueContent) {
+        if (issueTitle && issueContent && isRepoAnalysisComplete) {
             generateSolution();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [issueTitle, issueContent]);
+    }, [issueTitle, issueContent, isRepoAnalysisComplete]);
 
     useEffect(() => {
       if (relatedFiles.length > 0) {
@@ -165,7 +166,7 @@ export default function Solution() {
         }
         setIsGeneratingSolution(false);
     };
-
+    
     const buildTreeFromPaths = (paths: string[]): TreeNode => {
       const root: TreeNode = { name: "root", children: [], type: "folder", path: "" };
   
@@ -343,6 +344,36 @@ export default function Solution() {
         handleSendMessage();
       }
     };
+        
+    // Function to check repository analysis status
+    const checkRepoAnalysisStatus = async (repoUrl: string) => {
+        setIsCheckingAnalysis(true);
+        
+        try {
+            const response = await fetch(`/api/check_analysis_status?repoUrl=${encodeURIComponent(repoUrl)}`, {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+            });
+            
+            if (!response.ok) {
+                throw new Error("Failed to check analysis status");
+            }
+            
+            const data = await response.json();
+            setIsRepoAnalysisComplete(data.analysisComplete);
+            
+            // If analysis is not complete, check again in 5 seconds
+            if (!data.analysisComplete) {
+                setTimeout(() => checkRepoAnalysisStatus(repoUrl), 5000);
+            }
+        } catch (error) {
+            console.error("Error checking repository analysis status:", error);
+            // Don't show error to user, just set status to false
+            setIsRepoAnalysisComplete(false);
+        } finally {
+            setIsCheckingAnalysis(false);
+        }
+    };
 
     return (
       <div className="flex flex-col items-center justify-start pt-6 space-y-6 bg-white">
@@ -435,9 +466,15 @@ export default function Solution() {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-700 mx-auto mb-2" />
                           <p className="text-gray-500">Generating solution...</p>
                         </div>
-                      ) : (
-                        <p className="text-gray-500">No solution generated yet.</p>
-                      )}
+                      ) : !isRepoAnalysisComplete ? (
+                          <div className="text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto mb-2"></div>
+                            <p className="text-gray-500">Analyzing repository structure...</p>
+                            <p className="text-gray-400 text-sm mt-2">This may take a few minutes for large repositories.</p>
+                          </div>
+                        ) : (
+                          <p className="text-gray-500">No solution generated yet.</p>
+                        )}
                     </div>
                   )}
                 </div>
