@@ -25,10 +25,9 @@ class NextJsDependencyAnalyzer:
         self.branch = branch
         self.github_token = github_token or os.getenv('GITHUB_TOKEN')
         self.parse_repo_url()
-        
+       
         self.file_structure = {}
         self.dependencies = defaultdict(set)
-        self.external_libraries = defaultdict(set)
         self.processed_files = set()
         self.file_queue = deque()
         
@@ -311,17 +310,7 @@ class NextJsDependencyAnalyzer:
         
         for import_path in imports:
             if self._is_external_library(import_path):
-                lib_name = import_path.split('/')[0]
-                if lib_name.startswith('@'):
-                    if len(import_path.split('/')) > 1:
-                        lib_name = '/'.join(import_path.split('/')[:2])
-                        
-                self.external_libraries[file_path].add(lib_name)
-                self.file_structure[file_path]["imports"].append({
-                    "type": "external",
-                    "path": import_path,
-                    "library": lib_name
-                })
+                continue
             else:
                 resolved_base = self._resolve_import_path(import_path, file_path)
                 if resolved_base:
@@ -369,60 +358,112 @@ class NextJsDependencyAnalyzer:
                 if imported_file in self.file_structure:
                     self.file_structure[imported_file]["imported_by"].append(file_path)
 
-    def _analyze_component_relationships(self):
-        component_types = {
-            "pages": [],
-            "components": [],
-            "hooks": [],
-            "utils": [],
-            "contexts": [],
-            "layouts": [],
-            "api": []
+    def _analyze_project_architecture(self):
+        """
+        Analyzes the project architecture by:
+        1. Categorizing files by component type
+        2. Identifying architectural patterns
+        3. Detecting presence of key Next.js directories
+        
+        Returns:
+            Dictionary with comprehensive architectural analysis
+        """
+        # Initialize the architecture analysis dictionary
+        architecture = {
+            "component_types": {
+                "pages": [],
+                "components": [],
+                "hooks": [],
+                "utils": [],
+                "contexts": [],
+                "layouts": [],
+                "api": []
+            },
+            "patterns": [],
+            "structure": {
+                "has_pages_dir": False,
+                "has_app_dir": False,
+                "has_api_routes": False,
+                "has_public_dir": False,
+                "has_component_dir": False
+            }
         }
         
+        # Counters for pattern detection
+        container_count = 0
+        hooks_count = 0
+        context_count = 0
+        utils_count = 0
+        feature_folders = set()
+        
+        # Process all files once to gather all information
         for file_path in self.file_structure:
+            # Component type categorization
             if '/pages/' in file_path or '/app/' in file_path:
-                component_types["pages"].append(file_path)
+                architecture["component_types"]["pages"].append(file_path)
+                # Update structure detection
+                if '/pages/' in file_path:
+                    architecture["structure"]["has_pages_dir"] = True
+                if '/app/' in file_path:
+                    architecture["structure"]["has_app_dir"] = True
             elif '/components/' in file_path:
-                component_types["components"].append(file_path)
+                architecture["component_types"]["components"].append(file_path)
+                architecture["structure"]["has_component_dir"] = True
             elif '/hooks/' in file_path or file_path.endswith('Hook.js') or file_path.endswith('Hook.tsx'):
-                component_types["hooks"].append(file_path)
+                architecture["component_types"]["hooks"].append(file_path)
+                hooks_count += 1
             elif '/utils/' in file_path or '/lib/' in file_path or '/helpers/' in file_path:
-                component_types["utils"].append(file_path)
+                architecture["component_types"]["utils"].append(file_path)
+                if '/utils/' in file_path or '/helpers/' in file_path:
+                    utils_count += 1
             elif '/context/' in file_path or '/contexts/' in file_path or 'Provider' in file_path:
-                component_types["contexts"].append(file_path)
+                architecture["component_types"]["contexts"].append(file_path)
+                context_count += 1
             elif '/layouts/' in file_path or 'Layout' in file_path:
-                component_types["layouts"].append(file_path)
+                architecture["component_types"]["layouts"].append(file_path)
             elif '/api/' in file_path:
-                component_types["api"].append(file_path)
+                architecture["component_types"]["api"].append(file_path)
+                architecture["structure"]["has_api_routes"] = True
+            
+            # Pattern detection
+            if 'Container' in file_path:
+                container_count += 1
+            
+            # Public directory detection
+            if '/public/' in file_path:
+                architecture["structure"]["has_public_dir"] = True
+            
+            # Feature folder detection
+            parts = Path(file_path).parts
+            if len(parts) > 2 and parts[0] in ['src', 'app', 'features']:
+                feature_folders.add(parts[1])
         
-        return component_types
-
-    def _identify_key_files(self):
-        key_files = {
-            "entry_points": [],
-            "shared_components": [],
-            "utility_hubs": []
-        }
+        # Identify architectural patterns based on counters
+        if container_count > 2:
+            architecture["patterns"].append("Container/Presentation Pattern")
         
-        for file, info in self.file_structure.items():
-            if len(info["imported_by"]) > 3 and len(info["imports"]) > 5:
-                if '/pages/' in file or '/app/' in file:
-                    key_files["entry_points"].append(file)
+        if hooks_count > 3:
+            architecture["patterns"].append("Custom Hooks Pattern")
         
-        for file, info in self.file_structure.items():
-            if len(info["imported_by"]) > 5:
-                if '/components/' in file:
-                    key_files["shared_components"].append(file)
+        if context_count > 1:
+            architecture["patterns"].append("React Context API")
         
-        for file, info in self.file_structure.items():
-            if len(info["imported_by"]) > 4 and len(info["imports"]) < 3:
-                if '/utils/' in file or '/lib/' in file or '/helpers/' in file:
-                    key_files["utility_hubs"].append(file)
+        if utils_count > 5:
+            architecture["patterns"].append("Utility-First Approach")
         
-        return key_files
+        if len(feature_folders) > 3:
+            architecture["patterns"].append("Feature-Based/Modular Architecture")
+        
+        return architecture
 
     def analyze(self):
+        """
+        Main analysis method that orchestrates the entire dependency analysis process.
+        Finds files, processes them, builds relationships, and generates insights.
+        
+        Returns:
+            Comprehensive dependency graph with project metadata and insights
+        """
         print(f"Analyzing Next.js project at: {self.repo_url}")
         
         self._find_project_files()
@@ -442,269 +483,447 @@ class NextJsDependencyAnalyzer:
         
         self._build_imported_by_relationships()
         
-        component_types = self._analyze_component_relationships()
-        
-        key_files = self._identify_key_files()
+        project_architecture = self._analyze_project_architecture()
         
         dependency_graph = {
             "project": {
                 "path": self.repo_url,
                 "files": self.file_structure,
-                "component_types": component_types,
-                "key_files": key_files
+                "component_types": project_architecture["component_types"],
             },
-            "external_libraries": self._summarize_external_libraries(),
             "metadata": {
                 "total_files": len(self.file_structure),
-                "total_external_libraries": len(self._get_all_external_libraries()),
                 "total_dependencies": sum(len(deps) for deps in self.dependencies.values()),
-                "most_imported_files": self._get_most_imported_files(10),
-                "most_importing_files": self._get_most_importing_files(10),
-                "most_used_libraries": self._get_most_used_libraries(10),
-                "project_structure": self._analyze_project_structure()
+                "project_architecture": project_architecture
             },
             "insights": self._generate_insights()
         }
         
         return dependency_graph
 
-    def _summarize_external_libraries(self):
-        all_libs = self._get_all_external_libraries()
-        
-        library_usage = {}
-        for lib in all_libs:
-            using_files = []
-            for file_path, libs in self.external_libraries.items():
-                if lib in libs:
-                    using_files.append(file_path)
-            
-            category = self._categorize_library(lib)
-            
-            library_usage[lib] = {
-                "name": lib,
-                "category": category,
-                "used_by_count": len(using_files),
-                "used_by_files": using_files
-            }
-            
-        return library_usage
-
-    def _categorize_library(self, library):
-        ui_libs = ['react', 'react-dom', 'next', '@mui', '@chakra', '@emotion', 'styled-components', 'tailwindcss', 'bootstrap']
-        state_libs = ['redux', 'zustand', 'recoil', 'jotai', 'mobx', '@reduxjs', 'react-query', 'swr']
-        routing_libs = ['next/router', 'next/navigation', 'react-router']
-        utility_libs = ['lodash', 'ramda', 'date-fns', 'moment', 'axios', 'qs', 'uuid']
-        form_libs = ['formik', 'react-hook-form', 'yup', 'zod']
-        testing_libs = ['jest', '@testing-library', 'cypress', 'vitest']
-        
-        if any(lib in library for lib in ui_libs):
-            return "UI/Component"
-        elif any(lib in library for lib in state_libs):
-            return "State Management"
-        elif any(lib in library for lib in routing_libs):
-            return "Routing"
-        elif any(lib in library for lib in utility_libs):
-            return "Utility"
-        elif any(lib in library for lib in form_libs):
-            return "Form Handling"
-        elif any(lib in library for lib in testing_libs):
-            return "Testing"
-        else:
-            return "Other"
-
-    def _get_all_external_libraries(self):
-        all_libs = set()
-        for libs in self.external_libraries.values():
-            all_libs.update(libs)
-        return all_libs
-
-    def _get_most_imported_files(self, count=10):
-        imported_by_counts = {}
-        for file_path, file_info in self.file_structure.items():
-            imported_by_counts[file_path] = len(file_info["imported_by"])
-            
-        sorted_files = sorted(imported_by_counts.items(), 
-                             key=lambda x: x[1], reverse=True)
-        
-        return [{"file": file, "imported_by_count": imported_count} 
-                for file, imported_count in sorted_files[:count]]
-
-    def _get_most_importing_files(self, count=10):
-        importing_counts = {}
-        for file_path, file_info in self.file_structure.items():
-            internal_imports = [imp for imp in file_info["imports"] 
-                              if imp["type"] == "internal"]
-            importing_counts[file_path] = len(internal_imports)
-            
-        sorted_files = sorted(importing_counts.items(), 
-                             key=lambda x: x[1], reverse=True)
-        
-        return [{"file": file, "imports_count": import_count} 
-                for file, import_count in sorted_files[:count]]
-
-    def _get_most_used_libraries(self, count=10):
-        lib_counts = {}
-        for libs in self.external_libraries.values():
-            for lib in libs:
-                lib_counts[lib] = lib_counts.get(lib, 0) + 1
-                
-        sorted_libs = sorted(lib_counts.items(), 
-                            key=lambda x: x[1], reverse=True)
-        
-        return [{"library": lib, "used_by_count": used_count} 
-                for lib, used_count in sorted_libs[:count]]
-
-    def _analyze_project_structure(self):
-        structure = {
-            "has_pages_dir": any('/pages/' in file for file in self.file_structure),
-            "has_app_dir": any('/app/' in file for file in self.file_structure),
-            "has_api_routes": any('/api/' in file for file in self.file_structure),
-            "has_public_dir": any('/public/' in file for file in self.file_structure),
-            "has_component_dir": any('/components/' in file for file in self.file_structure),
-            "folder_structure": self._analyze_folder_structure()
-        }
-        
-        return structure
-
-    def _analyze_folder_structure(self):
-        folders = {}
-        
-        for file_path in self.file_structure:
-            parts = Path(file_path).parts
-            current = folders
-            
-            for i, part in enumerate(parts[:-1]):  
-                if part not in current:
-                    current[part] = {"_files": 0, "_internal_deps": 0}
-                
-                current[part]["_files"] += 1
-                
-                file_info = self.file_structure[file_path]
-                internal_deps = [imp for imp in file_info["imports"] if imp["type"] == "internal"]
-                current[part]["_internal_deps"] += len(internal_deps)
-                
-                current = current[part]
-        
-        return folders
+    
 
     def _generate_insights(self):
+        """
+        Generates high-level insights about the project architecture.
+        Identifies architectural patterns, dependency hotspots, refactoring opportunities,
+        and library usage patterns.
+        
+        Returns:
+            Dictionary with project insights
+        """
         insights = {
-            "architectural_patterns": self._identify_architectural_patterns(),
-            "dependency_hotspots": self._identify_dependency_hotspots(),
-            "potential_refactorings": self._identify_potential_refactorings(),
-            "library_usage_patterns": self._analyze_library_usage_patterns()
+            "dependency_hotspots": self._identify_dependency_hotspots()
         }
         
         return insights
 
-    def _identify_architectural_patterns(self):
-        patterns = []
-        
-        container_count = sum(1 for file in self.file_structure if 'Container' in file)
-        if container_count > 2:
-            patterns.append("Container/Presentation Pattern")
-        
-        hooks_count = sum(1 for file in self.file_structure if '/hooks/' in file or file.endswith('Hook.js') or file.endswith('Hook.tsx'))
-        if hooks_count > 3:
-            patterns.append("Custom Hooks Pattern")
-        
-        context_count = sum(1 for file in self.file_structure if '/context/' in file or '/contexts/' in file or 'Provider' in file)
-        if context_count > 1:
-            patterns.append("React Context API")
-        
-        utils_count = sum(1 for file in self.file_structure if '/utils/' in file or '/helpers/' in file)
-        if utils_count > 5:
-            patterns.append("Utility-First Approach")
-        
-        feature_folders = set()
-        for file in self.file_structure:
-            parts = Path(file).parts
-            if len(parts) > 2 and parts[0] in ['src', 'app', 'features']:
-                feature_folders.add(parts[1])
-        if len(feature_folders) > 3:
-            patterns.append("Feature-Based/Modular Architecture")
-        
-        return patterns
-
     def _identify_dependency_hotspots(self):
-        hotspots = []
+        """
+        Identifies dependency hotspots in the project.
+        Focuses on circular dependencies, which present significant architectural challenges.
         
-        for file, info in self.file_structure.items():
-            if len(info["imports"]) > 5 and len(info["imported_by"]) > 5:
-                hotspots.append({
-                    "file": file,
-                    "type": "High Coupling",
-                    "imports_count": len(info["imports"]),
-                    "imported_by_count": len(info["imported_by"])
-                })
+        Returns:
+            List of files involved in circular dependencies
+        """
+        circuluar_dependencies = []
         
         for file, info in self.file_structure.items():
             for imported_file in (imp["resolved"] for imp in info["imports"] if imp["type"] == "internal"):
                 if imported_file in self.file_structure and file in self.file_structure[imported_file]["imported_by"]:
-                    hotspots.append({
+                    circuluar_dependencies.append({
                         "file": file,
                         "type": "Circular Dependency",
                         "with": imported_file
                     })
         
-        return hotspots[:10]  
+        return circuluar_dependencies
+    
+    def _extract_keywords(self, issue_text):
+        """Extract meaningful keywords from issue text"""
+        # Remove common words and code syntax
+        cleaned_text = re.sub(r'```[\s\S]*?```', '', issue_text)
+        cleaned_text = re.sub(r'`[^`]*`', '', cleaned_text)
+        
+        # Extract potential component names (capitalized words)
+        component_pattern = r'\b([A-Z][a-z0-9]*(?:[A-Z][a-z0-9]*)*)\b'
+        components = re.findall(component_pattern, cleaned_text)
+        
+        # Extract other technical terms
+        words = re.findall(r'\b[a-z][a-z0-9]{2,}\b', cleaned_text.lower())
+        
+        # Filter common words
+        common_words = {'the', 'and', 'that', 'this', 'for', 'with', 'when', 'where', 'what', 'how', 'why'}
+        keywords = [w for w in words if w not in common_words]
+        
+        # Add components with higher weight
+        all_keywords = components + keywords
+        
+        # Return unique keywords
+        return list(set(all_keywords))
 
-    def _identify_potential_refactorings(self):
-        refactorings = []
+    def _calculate_path_relevance(self, file_path, issue_keywords):
+        """Calculate how relevant a file path is to the issue keywords"""
+        score = 0
+        path_parts = Path(file_path).parts
         
-        for file, libs in self.external_libraries.items():
-            if len(libs) > 7:
-                refactorings.append({
-                    "file": file,
-                    "type": "High External Dependencies",
-                    "library_count": len(libs)
-                })
+        # Score based on path parts
+        for part in path_parts:
+            part_lower = part.lower()
+            for keyword in issue_keywords:
+                keyword_lower = keyword.lower()
+                if keyword_lower == part_lower:
+                    score += 10  # Exact match
+                elif keyword_lower in part_lower:
+                    score += 5   # Partial match
         
-        for file, info in self.file_structure.items():
-            if len(info["imported_by"]) <= 1 and len(info["imports"]) > 7:
-                refactorings.append({
-                    "file": file,
-                    "type": "Low Cohesion",
-                    "imports_count": len(info["imports"]),
-                    "imported_by_count": len(info["imported_by"])
-                })
+        # Higher weight for matches in the file name itself
+        file_name = Path(file_path).stem.lower()
+        for keyword in issue_keywords:
+            keyword_lower = keyword.lower()
+            if keyword_lower == file_name:
+                score += 15  # Exact match with filename
+            elif keyword_lower in file_name:
+                score += 8   # Partial match with filename
         
-        return refactorings[:10] 
+        return score
 
-    def _analyze_library_usage_patterns(self):
-        usage_patterns = {}
+    def _calculate_content_relevance(self, file_path, issue_keywords):
+        """Calculate how relevant file content is to the issue keywords"""
+        try:
+            # Convert relative path to absolute
+            abs_path = self.project_path / file_path
+            
+            with open(abs_path, 'r', encoding='utf-8') as f:
+                # Read first chunk of file (to avoid large file processing)
+                content = f.read(10000)
+            
+            score = 0
+            
+            # Check for keyword matches in important code constructs
+            for keyword in issue_keywords:
+                keyword_lower = keyword.lower()
+                
+                # Check for component/class definitions
+                class_pattern = fr'class\s+\w*{re.escape(keyword)}\w*'
+                if re.search(class_pattern, content, re.IGNORECASE):
+                    score += 12
+                
+                # Check for function/component definitions
+                func_pattern = fr'(function|const)\s+\w*{re.escape(keyword)}\w*'
+                if re.search(func_pattern, content, re.IGNORECASE):
+                    score += 10
+                
+                # Check for export declarations
+                export_pattern = fr'export\s+(?:default\s+)?(?:const\s+)?\w*{re.escape(keyword)}\w*'
+                if re.search(export_pattern, content, re.IGNORECASE):
+                    score += 15
+                
+                # Check comments for keywords
+                comment_pattern = fr'//.*{re.escape(keyword)}|/\*[\s\S]*?{re.escape(keyword)}[\s\S]*?\*/'
+                comment_matches = re.findall(comment_pattern, content, re.IGNORECASE)
+                score += len(comment_matches) * 5
+                
+                # Count overall keyword mentions with diminishing returns
+                keyword_count = content.lower().count(keyword_lower)
+                score += min(keyword_count, 10) * 0.5
+            
+            return score
+        except Exception as e:
+            print(f"Warning: Could not calculate content relevance for {file_path}: {e}")
+            return 0
+
+    def _calculate_structural_relevance(self, file_path, issue_keywords):
+        """Calculate structural relevance based on dependency patterns"""
+        score = 0
         
-        lib_to_files = defaultdict(list)
-        for file, libs in self.external_libraries.items():
-            for lib in libs:
-                lib_to_files[lib].append(file)
+        # Get direct dependencies
+        imports = self.dependencies.get(file_path, set())
         
-        file_to_libs = {file: set(libs) for file, libs in self.external_libraries.items()}
-        lib_combinations = defaultdict(int)
+        # Get files that import this file
+        imported_by = []
+        for importing_file, imported_files in self.dependencies.items():
+            if file_path in imported_files:
+                imported_by.append(importing_file)
         
-        for file, libs in file_to_libs.items():
-            if len(libs) >= 2:
-                for lib1 in libs:
-                    for lib2 in libs:
-                        if lib1 < lib2:  
-                            lib_combinations[(lib1, lib2)] += 1
+        # Check if any dependencies or importers have high keyword relevance
+        for related_file in list(imports) + imported_by:
+            related_score = self._calculate_path_relevance(related_file, issue_keywords)
+            if related_score > 15:  # High relevance threshold
+                score += 5
+            elif related_score > 8:  # Medium relevance
+                score += 2
         
-        top_combinations = sorted(lib_combinations.items(), key=lambda x: x[1], reverse=True)[:5]
-        usage_patterns["common_combinations"] = [
-            {"libraries": list(combo), "count": count} for combo, count in top_combinations
+        # Bonus for files that are central (both import and are imported by others)
+        if len(imports) > 0 and len(imported_by) > 0:
+            score += min(len(imports), 5) + min(len(imported_by), 5)
+        
+        return score
+
+    def _get_file_contents(self, file_paths, issue_keywords):
+        """
+        Get relevant portions of files based on issue keywords.
+        Intelligently extracts the most pertinent sections.
+        
+        Args:
+            file_paths: List of file paths to process
+            issue_keywords: Keywords extracted from the issue
+            
+        Returns:
+            Dictionary mapping file paths to their relevant content
+        """
+        contents = {}
+        
+        for file_path in file_paths:
+            try:
+                abs_path = self.project_path / file_path
+                
+                with open(abs_path, 'r', encoding='utf-8') as f:
+                    full_content = f.read()
+                
+                # Always include imports section
+                imports_section = self._extract_imports_section(full_content)
+                
+                # Extract relevant functions/components
+                relevant_sections = self._extract_relevant_sections(full_content, issue_keywords)
+                
+                if relevant_sections:
+                    # We found specific relevant sections
+                    contents[file_path] = imports_section + "\n\n" + "\n\n".join(relevant_sections)
+                    # Add note if we're not including the whole file
+                    if len(relevant_sections) < full_content.count('function') + full_content.count('class') + full_content.count('const') - 2:
+                        contents[file_path] += "\n\n// Note: Only showing relevant portions of the file"
+                else:
+                    # If no specific sections found, include the beginning and relevant chunks
+                    truncated_content = self._include_relevant_chunks(full_content, issue_keywords)
+                    contents[file_path] = truncated_content
+                    
+            except Exception as e:
+                contents[file_path] = f"Error reading file: {e}"
+                
+        return contents
+
+    def _extract_imports_section(self, content):
+        """Extract the imports section of a file"""
+        imports = []
+        for line in content.split('\n'):
+            if re.match(r'^import\s+.+\s+from\s+[\'"]', line) or re.match(r'^const\s+.+\s+=\s+require\([\'"]', line):
+                imports.append(line)
+            elif imports and not line.strip():
+                # Include blank lines within import section
+                imports.append(line)
+            elif imports:
+                # Stop once imports are done
+                break
+        
+        return '\n'.join(imports)
+
+    def _extract_relevant_sections(self, content, keywords):
+        """Extract functions or components relevant to the issue keywords"""
+        relevant_sections = []
+        
+        # Different patterns to identify code blocks
+        patterns = [
+            # Function declaration
+            r'(function\s+\w+\s*\([^)]*\)\s*\{[\s\S]*?\n\})',
+            # Arrow function
+            r'(const\s+\w+\s*=\s*\([^)]*\)\s*=>\s*\{[\s\S]*?\n\});?',
+            # Class declaration
+            r'(class\s+\w+(?:\s+extends\s+\w+)?\s*\{[\s\S]*?\n\})',
+            # Object declaration
+            r'(const\s+\w+\s*=\s*\{[\s\S]*?\n\});?',
+            # React component (function)
+            r'(function\s+[A-Z]\w*\s*\([^)]*\)\s*\{[\s\S]*?\n\})',
+            # React component (arrow)
+            r'(const\s+[A-Z]\w*\s*=\s*(?:\([^)]*\)|)\s*=>\s*\{[\s\S]*?\n\});?'
         ]
         
-        dir_to_libs = defaultdict(set)
-        for file, libs in self.external_libraries.items():
-            directory = str(Path(file).parent)
-            dir_to_libs[directory].update(libs)
+        for pattern in patterns:
+            matches = re.finditer(pattern, content)
+            for match in matches:
+                section = match.group(1)
+                
+                # Check if the section is relevant to any keyword
+                score = 0
+                for keyword in keywords:
+                    # More weight for keywords in the declaration/definition line
+                    first_line = section.split('\n')[0].lower()
+                    if keyword.lower() in first_line:
+                        score += 10
+                    
+                    # Count keyword occurrences in the entire section
+                    keyword_count = section.lower().count(keyword.lower())
+                    score += keyword_count
+                
+                # Include sections with sufficient relevance
+                if score > 2:  # Adjust threshold as needed
+                    relevant_sections.append(section)
         
-        usage_patterns["directory_specific_libraries"] = [
-            {"directory": dir, "libraries": list(libs)} 
-            for dir, libs in sorted(dir_to_libs.items(), key=lambda x: len(x[1]), reverse=True)[:5]
-        ]
+        return relevant_sections
+
+    def _include_relevant_chunks(self, content, keywords):
+        """Include beginning of file plus chunks containing keywords"""
+        lines = content.split('\n')
         
-        return usage_patterns
+        # Always include first 20 lines (probable imports, setup)
+        included_lines = set(range(min(20, len(lines))))
+        
+        # Find relevant chunks
+        for i, line in enumerate(lines):
+            if any(keyword.lower() in line.lower() for keyword in keywords):
+                # Include 10 lines before and after each match
+                for j in range(max(0, i-10), min(len(lines), i+11)):
+                    included_lines.add(j)
+        
+        # Convert to list and sort
+        included_line_numbers = sorted(included_lines)
+        
+        # Build the content with line numbers
+        result = []
+        current_section = []
+        last_line_num = -2
+        
+        for line_num in included_line_numbers:
+            if line_num > last_line_num + 1:
+                # Gap detected, complete current section
+                if current_section:
+                    result.append('\n'.join(current_section))
+                    current_section = []
+                # Add ellipsis if not at the start
+                if result:
+                    result.append("\n// ... (code omitted) ...\n")
+            
+            current_section.append(lines[line_num])
+            last_line_num = line_num
+        
+        # Add the final section
+        if current_section:
+            result.append('\n'.join(current_section))
+        
+        return '\n'.join(result)
+
+    def _generate_repo_fingerprint(self):
+        """Generate a concise repository fingerprint for context"""
+        architecture = self._analyze_project_architecture()
+        
+        fingerprint = {
+            "total_files": len(self.file_structure),
+            "architecture_patterns": architecture["patterns"],
+            "structure": architecture["structure"],
+            "file_type_counts": {
+                category: len(files) 
+                for category, files in architecture["component_types"].items() 
+                if files
+            },
+            "circular_dependencies": len(self._identify_dependency_hotspots())
+        }
+        
+        return fingerprint
+    
+    def find_issue_relevant_files(self, issue_text, max_files=15):
+        """
+        Identifies files most relevant to a GitHub issue using algorithmic scoring.
+        
+        Args:
+            issue_text: The GitHub issue description text
+            max_files: Maximum number of files to include
+            
+        Returns:
+            List of file paths relevant to the issue
+        """
+        # Extract keywords from issue
+        issue_keywords = self._extract_keywords(issue_text)
+        print(f"Extracted keywords: {issue_keywords}")
+        
+        if not issue_keywords:
+            print("Warning: No meaningful keywords extracted from issue")
+            return []
+        
+        # Score all files by path relevance first
+        path_scores = {}
+        for file_path in self.file_structure:
+            path_score = self._calculate_path_relevance(file_path, issue_keywords)
+            path_scores[file_path] = path_score
+        
+        # Get top matches by path for content analysis
+        path_candidates = sorted(path_scores.items(), key=lambda x: x[1], reverse=True)[:50]
+        
+        # Full relevance scoring for top path candidates
+        file_scores = {}
+        for file_path, path_score in path_candidates:
+            content_score = self._calculate_content_relevance(file_path, issue_keywords)
+            structural_score = self._calculate_structural_relevance(file_path, issue_keywords)
+            
+            # Weighted combination
+            total_score = (
+                path_score * 0.3 + 
+                content_score * 0.5 + 
+                structural_score * 0.2
+            )
+            
+            file_scores[file_path] = total_score
+        
+        # Select top files
+        top_files = sorted(file_scores.items(), key=lambda x: x[1], reverse=True)[:max_files]
+        
+        # Return selected files
+        return [file_path for file_path, _ in top_files]
+
+    def prepare_issue_context(self, issue_text):
+        """
+        Prepares complete context for an issue including relevant files and repo info.
+        
+        Args:
+            issue_text: The GitHub issue description
+            
+        Returns:
+            Dictionary with full context for LLM solution generation
+        """
+        # Find relevant files
+        relevant_files = self.find_issue_relevant_files(issue_text)
+        
+        if not relevant_files:
+            return {
+                "error": "Could not identify relevant files for this issue",
+                "repository_info": self._generate_repo_fingerprint()
+            }
+        
+        # Get file contents
+        # Get file contents
+        file_contents = self._get_file_contents(relevant_files, self._extract_keywords(issue_text))
+        
+        # Prepare dependency summaries
+        file_relationships = {}
+        for file_path in relevant_files:
+            # Get direct dependencies within the relevant files
+            imports = [imp["resolved"] for imp in self.file_structure[file_path]["imports"] 
+                    if imp["type"] == "internal" and imp["resolved"] in relevant_files]
+            
+            # Get files that import this file
+            imported_by = [f for f in self.file_structure[file_path]["imported_by"] 
+                        if f in relevant_files]
+            
+            if imports or imported_by:
+                file_relationships[file_path] = {
+                    "imports": imports,
+                    "imported_by": imported_by
+                }
+        
+        # Create final context
+        issue_context = {
+            "issue": issue_text,
+            "repository_info": self._generate_repo_fingerprint(),
+            "relevant_files": [
+                {
+                    "path": file_path,
+                    "content": file_contents[file_path],
+                    "relationships": file_relationships.get(file_path, {})
+                }
+                for file_path in relevant_files
+            ]
+        }
+        
+        return issue_context
 
 def main():
     if len(sys.argv) != 2:
@@ -783,4 +1002,5 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
+    import argparse
     main()

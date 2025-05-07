@@ -119,8 +119,11 @@ async def generate_solution(issue: IssueRequest):
         
         # Return the solution
         solution = response.choices[0].message.content
-        return {"solution": solution}
-    
+        return {
+            "solution": "...",
+            "related_files": ["src/pages/api/handler.ts", "src/components/Button.tsx"]
+        }
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

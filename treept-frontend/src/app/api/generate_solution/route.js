@@ -31,7 +31,10 @@ export async function POST(request) {
     }
 
     const data = await response.json();
-    return Response.json({ solution: data.solution });
+    return Response.json({
+      solution: data.solution,
+      related_files: data.related_files || []
+    });
   } catch (error) {
     console.error("Error generating solution:", error);
     return Response.json(
@@ -40,3 +43,25 @@ export async function POST(request) {
     );
   }
 } 
+
+
+// mock code to show node graph
+/* 
+export async function POST(request) {
+  try {
+    const mockResponse = {
+      solution: "This is a mocked solution.",
+      related_files: [
+        "pages/index.tsx",
+        "components/Navbar.tsx",
+        "components/Footer.tsx",
+        "utils/helpers.ts",
+        "api/route.js"
+      ]
+    };
+    return Response.json(mockResponse);
+  } catch (error) {
+    return Response.json({ error: "Mock failed" }, { status: 500 });
+  }
+}
+*/
