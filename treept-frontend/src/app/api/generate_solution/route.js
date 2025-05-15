@@ -1,4 +1,11 @@
 export async function POST(request) {
+  let controller = new AbortController();
+
+  // Handle request aborted
+  request.signal?.addEventListener('abort', () => {
+    controller.abort();
+  });
+
   try {
     const body = await request.json();
     const { title, content, repoUrl } = body;
@@ -23,6 +30,7 @@ export async function POST(request) {
         content,
         repo_url: repoUrl
       }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -43,25 +51,3 @@ export async function POST(request) {
     );
   }
 } 
-
-
-// mock code to show node graph
-/* 
-export async function POST(request) {
-  try {
-    const mockResponse = {
-      solution: "This is a mocked solution.",
-      related_files: [
-        "pages/index.tsx",
-        "components/Navbar.tsx",
-        "components/Footer.tsx",
-        "utils/helpers.ts",
-        "api/route.js"
-      ]
-    };
-    return Response.json(mockResponse);
-  } catch (error) {
-    return Response.json({ error: "Mock failed" }, { status: 500 });
-  }
-}
-*/

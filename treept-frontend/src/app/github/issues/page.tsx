@@ -45,8 +45,6 @@ export default function Issues() {
   const [searchQuery, setSearchQuery] = useState("");
   const [inputValue, setInputValue] = useState(searchQuery);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isAnalyzingDependencies, setIsAnalyzingDependencies] = useState(false);
-  const [analysisComplete, setAnalysisComplete] = useState(false);
   const [issues, setIssues] = useState<{ number: number; title: string; html_url: string }[]>([]);
   const [error, setError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -69,7 +67,6 @@ export default function Issues() {
   useEffect(() => {
     if (repoUrl) {
       fetchRepoData();
-      analyzeRepository();
     }
   }, [repoUrl]);
 
@@ -583,38 +580,6 @@ export default function Issues() {
       nodes.forEach((d: any) => { d.x0 = d.x; d.y0 = d.y; });
     }
   };
-  
-
-  // Function to analyze the repository structure and dependencies
-  const analyzeRepository = async () => {
-    if (!repoUrl) return;
-    
-    setIsAnalyzingDependencies(true);
-    setAnalysisComplete(false);
-    
-    try {
-      const response = await fetch("/api/analyze_repo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoUrl }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to analyze repository");
-      }
-      
-      const data = await response.json();
-      console.log("Repository analysis complete:", data.message);
-      setAnalysisComplete(true);
-    } catch (error) {
-      console.error("Error analyzing repository:", error);
-      // Don't show error to user - this is background analysis
-      // and shouldn't interrupt their workflow
-    } finally {
-      setIsAnalyzingDependencies(false);
-    }
-  };
 
   return (
     <div className="flex flex-col items-center justify-start pt-4 space-y-4">
@@ -634,35 +599,6 @@ export default function Issues() {
           </button>
         </div>
       )}
-
-      {/* Repository dependency analysis indicator */}
-      <div className="w-full max-w-lg flex justify-center items-center py-2 mb-2">
-        {isAnalyzingDependencies ? (
-          <div className="flex items-center text-sm text-gray-600">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700 mr-2"></div>
-            Analyzing codebase dependencies...
-          </div>
-        ) : analysisComplete ? (
-          <div className="flex items-center text-sm text-green-600">
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="16" 
-              height="16" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="mr-2"
-            >
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-            Dependency analysis complete
-          </div>
-        ) : null}
-      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-8xl">
         <div className="md:col-span-2 flex flex-col gap-4">

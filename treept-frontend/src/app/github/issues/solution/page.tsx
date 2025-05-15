@@ -11,6 +11,13 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeHighlight from "rehype-highlight";
+import rehypeKatex from "rehype-katex";
+import remarkBreaks from "remark-breaks";
+
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -38,7 +45,6 @@ export default function Solution() {
     const [error, setError] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [isRepoAnalysisComplete, setIsRepoAnalysisComplete] = useState(false);
-    const [isCheckingAnalysis, setIsCheckingAnalysis] = useState(false);
     const [relatedFiles, setRelatedFiles] = useState<string[]>([]);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [currentMessage, setCurrentMessage] = useState("");
@@ -46,6 +52,21 @@ export default function Solution() {
     const searchParams = useSearchParams();
     const svgContainerRef = useRef<HTMLDivElement | null>(null);
     const chatEndRef = useRef<HTMLDivElement | null>(null);
+    const analyzeIssueController = useRef<AbortController | null>(null);
+    const generateSolutionController = useRef<AbortController | null>(null);
+
+    // Add a cleanup function in useEffect to abort any ongoing requests
+    useEffect(() => {
+      return () => {
+        // This runs when the component unmounts
+        if (analyzeIssueController.current) {
+          analyzeIssueController.current.abort();
+        }
+        if (generateSolutionController.current) {
+          generateSolutionController.current.abort();
+        }
+      };
+    }, []);
 
     const clearErrors = () => {
         setError(false);
@@ -64,7 +85,6 @@ export default function Solution() {
 
         if (repoUrlParam && !isNaN(issueNumParam)) {
             getIssue(repoUrlParam, issueNumParam);
-            checkRepoAnalysisStatus(repoUrlParam);
         } else {
             setError(true);
             setErrorMessage("Invalid Github URL");
@@ -74,11 +94,14 @@ export default function Solution() {
 
     // Effect to generate solution once issue content is loaded
     useEffect(() => {
-        if (issueTitle && issueContent && isRepoAnalysisComplete) {
-            generateSolution();
+      if (issueTitle && issueContent) {
+        const repoUrl = searchParams?.get("repoUrl") || "";
+        if (repoUrl) {
+          analyzeIssue(repoUrl, issueTitle, issueContent);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [issueTitle, issueContent, isRepoAnalysisComplete]);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [issueTitle, issueContent]);
 
     useEffect(() => {
       if (relatedFiles.length > 0) {
@@ -134,37 +157,54 @@ export default function Solution() {
     };
     
     const generateSolution = async () => {
-        if (!issueTitle || !issueContent) return;
+      if (!issueTitle || !issueContent) return;
+      
+      const repoUrl = searchParams?.get("repoUrl") || "";
+      if (!repoUrl) return;
+      
+      setIsGeneratingSolution(true);
+      
+      // Create a new AbortController for this request
+      generateSolutionController.current = new AbortController();
+      const signal = generateSolutionController.current.signal;
+      
+      try {
+        const response = await fetch("/api/generate_solution", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: issueTitle,
+            content: issueContent,
+            repoUrl: repoUrl
+          }),
+          signal, // Pass the signal to the fetch request
+        });
         
-        const repoUrl = searchParams?.get("repoUrl") || "";
-        if (!repoUrl) return;
-        
-        setIsGeneratingSolution(true);
-        try {
-            const response = await fetch("/api/generate_solution", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    title: issueTitle,
-                    content: issueContent,
-                    repoUrl: repoUrl
-                }),
-            });
-            
-            const data = await response.json();
-            if (data.error) {
-                setError(true);
-                setErrorMessage(`Error generating solution: ${data.error}`);
-            } else {
-                setSolution(data.solution);
-                setRelatedFiles(data.related_files || []);
-            }
-        } catch (error) {
-            console.error("Error generating solution:", error);
-            setError(true);
-            setErrorMessage("Failed to generate solution");
+        const data = await response.json();
+        if (data.error) {
+          setError(true);
+          setErrorMessage(`Error generating solution: ${data.error}`);
+        } else {
+          setSolution(data.solution);
+          setRelatedFiles(data.related_files || []);
         }
-        setIsGeneratingSolution(false);
+      } catch (error) {
+        // Check if the error is due to an aborted request
+        if (error.name === 'AbortError') {
+          console.log('Solution generation was aborted');
+          return; // Just return without updating state
+        }
+        
+        console.error("Error generating solution:", error);
+        setError(true);
+        setErrorMessage("Failed to generate solution");
+      } finally {
+        // Only reset generating state if the component is still mounted
+        // and the request wasn't aborted
+        if (!signal.aborted) {
+          setIsGeneratingSolution(false);
+        }
+      }
     };
     
     const buildTreeFromPaths = (paths: string[]): TreeNode => {
@@ -345,34 +385,56 @@ export default function Solution() {
       }
     };
         
-    // Function to check repository analysis status
-    const checkRepoAnalysisStatus = async (repoUrl: string) => {
-        setIsCheckingAnalysis(true);
+    // Function to analyze issue
+    const analyzeIssue = async (repoUrl: string, issueTitle: string, issueContent: string) => {
+      if (!repoUrl || !issueTitle || !issueContent) return;
+      
+      setIsAnalyzing(true);
+      clearErrors();
+      
+      // Create a new AbortController for this request
+      analyzeIssueController.current = new AbortController();
+      const signal = analyzeIssueController.current.signal;
+      
+      try {
+        const response = await fetch("/api/analyze_issue", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            repoUrl,
+            issueText: issueContent,
+            issueTitle
+          }),
+          signal, // Pass the signal to the fetch request
+        });
         
-        try {
-            const response = await fetch(`/api/check_analysis_status?repoUrl=${encodeURIComponent(repoUrl)}`, {
-                method: "GET",
-                headers: { "Content-Type": "application/json" },
-            });
-            
-            if (!response.ok) {
-                throw new Error("Failed to check analysis status");
-            }
-            
-            const data = await response.json();
-            setIsRepoAnalysisComplete(data.analysisComplete);
-            
-            // If analysis is not complete, check again in 5 seconds
-            if (!data.analysisComplete) {
-                setTimeout(() => checkRepoAnalysisStatus(repoUrl), 5000);
-            }
-        } catch (error) {
-            console.error("Error checking repository analysis status:", error);
-            // Don't show error to user, just set status to false
-            setIsRepoAnalysisComplete(false);
-        } finally {
-            setIsCheckingAnalysis(false);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to analyze issue context");
         }
+        
+        const data = await response.json();
+        setIsRepoAnalysisComplete(true);
+        // Once issue analysis is complete, generate the solution
+        generateSolution();
+      } catch (error) {
+        // Check if the error is due to an aborted request
+        if (error.name === 'AbortError') {
+          console.log('Issue analysis was aborted');
+          return; // Just return without updating state
+        }
+        
+        console.error("Error analyzing issue context:", error);
+        setError(true);
+        setErrorMessage("Failed to analyze issue context. Please try again.");
+        setIsRepoAnalysisComplete(false);
+      } finally {
+        // Only reset analyzing state if the component is still mounted
+        // and the request wasn't aborted
+        if (!signal.aborted) {
+          setIsAnalyzing(false);
+        }
+      }
     };
 
     return (
@@ -457,7 +519,12 @@ export default function Solution() {
                 <div className="min-h-[24rem] bg-muted rounded-xl p-4 overflow-y-auto border border-gray-100">
                   {solution ? (
                     <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-800">
-                      {solution}
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeHighlight, rehypeKatex]}
+                      >
+                        {solution}
+                      </ReactMarkdown>
                     </div>
                   ) : (
                     <div className="h-full flex items-center justify-center">
