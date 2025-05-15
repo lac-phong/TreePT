@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
@@ -26,25 +26,49 @@ export async function POST(request) {
       const projectRootDir = path.join(process.cwd(), '..');
       const pythonScriptPath = path.join(projectRootDir, 'next_context.py');
       
-      // Change working directory to project root before running the script
-      // This ensures output files are generated in the project root
-      const cmd = `cd ${projectRootDir} && python3 ${pythonScriptPath} "${repoUrl}"`;
-      
-      // Run the Python script with the repo URL
-      const { stdout, stderr } = await execAsync(cmd);
-      
-      // If there was an error message and it's not just a warning, throw an error
-      if (stderr && !stderr.includes("Warning:")) {
-        console.error(`Python script error: ${stderr}`);
-        throw new Error(stderr);
-      }
-      
-      // The analysis is already generated in the project root directory
-      // No need to cache or store it in the frontend
-      // The OpenAI service will read these files directly
-      
-      return Response.json({ 
-        message: "Repository analysis complete"
+      // Use spawn instead of exec to get more detailed output
+      return new Promise((resolve, reject) => {
+        console.log(`Running Python script: ${projectRootDir}/.venv/bin/python ${pythonScriptPath} "${repoUrl}"`);
+        
+        const pythonProcess = spawn(`${projectRootDir}/.venv/bin/python`, 
+          [pythonScriptPath, repoUrl], 
+          { cwd: projectRootDir, shell: true }
+        );
+        
+        let stdoutData = '';
+        let stderrData = '';
+        
+        pythonProcess.stdout.on('data', (data) => {
+          const chunk = data.toString();
+          stdoutData += chunk;
+          console.log(`PYTHON STDOUT: ${chunk}`);
+        });
+        
+        pythonProcess.stderr.on('data', (data) => {
+          const chunk = data.toString();
+          stderrData += chunk;
+          console.error(`PYTHON STDERR: ${chunk}`);
+        });
+        
+        pythonProcess.on('close', (code) => {
+          console.log(`Python process exited with code ${code}`);
+          
+          if (code !== 0) {
+            console.error(`Full stderr: ${stderrData}`);
+            reject(new Error(`Python script failed with code ${code}. Error: ${stderrData}`));
+            return;
+          }
+          
+          resolve(Response.json({ 
+            message: "Repository analysis complete",
+            output: stdoutData
+          }));
+        });
+        
+        pythonProcess.on('error', (err) => {
+          console.error(`Failed to start Python process: ${err.message}`);
+          reject(new Error(`Failed to start Python process: ${err.message}`));
+        });
       });
       
     } catch (execError) {
@@ -62,4 +86,4 @@ export async function POST(request) {
       { status: 500 }
     );
   }
-} 
+}

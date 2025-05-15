@@ -960,38 +960,13 @@ def main():
         summary_lines = []
         summary_lines.append("Project Summary:")
         summary_lines.append(f"Total files: {dependency_graph['metadata']['total_files']}")
-        summary_lines.append(f"Total external libraries: {dependency_graph['metadata']['total_external_libraries']}")
         summary_lines.append(f"Total internal dependencies: {dependency_graph['metadata']['total_dependencies']}")
         summary_lines.append("")
-        summary_lines.append("Most imported files:")
-        for item in dependency_graph['metadata']['most_imported_files'][:5]:
-            summary_lines.append(f"- {item['file']} (imported by {item['imported_by_count']} files)")
-        summary_lines.append("")
-        summary_lines.append("Most used libraries:")
-        for item in dependency_graph['metadata']['most_used_libraries'][:5]:
-            summary_lines.append(f"- {item['library']} (used by {item['used_by_count']} files)")
-        summary_lines.append("")
-        summary_lines.append("Architectural patterns detected:")
-        for pattern in dependency_graph['insights']['architectural_patterns']:
-            summary_lines.append(f"- {pattern}")
         
         # Print summary to console
         print("\nProject Summary:")
         print(f"Total files: {dependency_graph['metadata']['total_files']}")
-        print(f"Total external libraries: {dependency_graph['metadata']['total_external_libraries']}")
         print(f"Total internal dependencies: {dependency_graph['metadata']['total_dependencies']}")
-        
-        print("\nMost imported files:")
-        for item in dependency_graph['metadata']['most_imported_files'][:5]:
-            print(f"- {item['file']} (imported by {item['imported_by_count']} files)")
-        
-        print("\nMost used libraries:")
-        for item in dependency_graph['metadata']['most_used_libraries'][:5]:
-            print(f"- {item['library']} (used by {item['used_by_count']} files)")
-            
-        print("\nArchitectural patterns detected:")
-        for pattern in dependency_graph['insights']['architectural_patterns']:
-            print(f"- {pattern}")
             
         # Write summary to file
         with open("repo_summary.txt", 'w', encoding='utf-8') as f:

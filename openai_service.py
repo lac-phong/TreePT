@@ -80,6 +80,8 @@ async def generate_solution(issue: IssueRequest):
         repo_context = ""
         if repo_summary:
             repo_context = f"""
+            Repository Analysis:
+            {repo_analysis}
             Repository Analysis Summary:
             {repo_summary}
             """
@@ -120,7 +122,7 @@ async def generate_solution(issue: IssueRequest):
         # Return the solution
         solution = response.choices[0].message.content
         return {
-            "solution": "...",
+            "solution": solution,
             "related_files": ["src/pages/api/handler.ts", "src/components/Button.tsx"]
         }
             
