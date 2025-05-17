@@ -2,6 +2,8 @@
 
 TreePT is an interactive, Next.js project analyzer that provides better insights into your codebase structure and dependencies. It leverages AI to generate comprehensive documentation and visualizations of your Next.js application architecture.
 
+Project link: https://github.com/lac-phong/TreePT
+
 ## Features
 
 - Automated dependency graph generation for Next.js projects
