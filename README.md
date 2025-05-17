@@ -51,6 +51,8 @@ Change directory to treept-frontend, then run:
 npm run dev
 ```
 
+Open the project at http://localhost:3000
+
 ## Project Structure
 
 - `nextjs_analyzer.py`: Main analyzer script for Next.js projects
